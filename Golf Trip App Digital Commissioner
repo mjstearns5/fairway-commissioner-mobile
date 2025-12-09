@@ -32,8 +32,9 @@ import {
   Globe,
   Car,
   LogIn,
-  Loader2, // Added
-  CreditCard // Added
+  Loader2, 
+  CreditCard,
+  ShoppingBag // Added for Team Merch tab
 } from 'lucide-react';
 import { initializeApp } from "firebase/app";
 import { 
@@ -392,8 +393,7 @@ const AuthScreen = () => {
     </div>
   );
 };
-
-// 3. Navigation & Layout
+// 2. Navigation & Layout
 const Layout = ({ children, view, setView, user, role, setRole, tripId, setTripId, handleLogout }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
@@ -403,6 +403,7 @@ const Layout = ({ children, view, setView, user, role, setRole, tripId, setTripI
     { id: 'tournament', label: 'Tournament', icon: Trophy },
     { id: 'booking', label: 'Book Rounds', icon: Globe },
     { id: 'travel', label: 'Stays/Transport', icon: Car },
+    { id: 'merch', label: 'Team Merch', icon: ShoppingBag }, // New Tab Added
     { id: 'logistics', label: 'Logistics', icon: Calendar },
     { id: 'finance', label: 'The Ledger', icon: DollarSign },
     { id: 'players', label: 'Roster', icon: Users },
@@ -676,6 +677,23 @@ const StaysTransportView = () => {
         <h3 className="text-2xl font-bold text-slate-700">Stays & Transport</h3>
         <p className="text-slate-500 max-w-sm mx-auto mt-2">
           Book hotels, rental cars, and shuttles for your group. Integration with travel partners coming soon.
+        </p>
+      </div>
+    </div>
+  );
+};
+
+// 6.1 Team Merch View (New Placeholder Component)
+const TeamMerchView = () => {
+  return (
+    <div className="flex flex-col items-center justify-center h-96 text-center space-y-4">
+      <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center">
+        <ShoppingBag className="w-10 h-10 text-slate-400" />
+      </div>
+      <div>
+        <h3 className="text-2xl font-bold text-slate-700">Team Merch</h3>
+        <p className="text-slate-500 max-w-sm mx-auto mt-2">
+          Order custom polos, hats, and gear for your trip. Store integration coming soon.
         </p>
       </div>
     </div>
@@ -1621,6 +1639,7 @@ const App = () => {
           {view === 'tournament' && <TournamentView players={players} matches={matches} updateMatch={updateMatch} addMatch={addMatch} deleteMatch={deleteMatch} role={role} teamNames={teamNames} updateTeamNames={updateTeamNames} />}
           {view === 'booking' && <BookRoundsView />}
           {view === 'travel' && <StaysTransportView />}
+          {view === 'merch' && <TeamMerchView />}
           {view === 'logistics' && <LogisticsView itinerary={itinerary} addItinerary={addItinerary} deleteItinerary={deleteItinerary} role={role} />}
           {view === 'finance' && <LedgerView players={players} expenses={expenses} bets={bets} addExpense={addExpense} addBet={addBet} deleteItem={deleteLedgerItem} role={role} />}
         </>
