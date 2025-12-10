@@ -35,8 +35,8 @@ import {
   Loader2, 
   CreditCard,
   ShoppingBag,
-  UserCircle, // Added for Profile Icon
-  AlertTriangle // Added for Cancel Sub warning
+  UserCircle,
+  AlertTriangle
 } from 'lucide-react';
 import { initializeApp } from "firebase/app";
 import { 
@@ -77,7 +77,7 @@ const COLLECTIONS = {
   EXPENSES: 'fc_expenses',
   BETS: 'fc_bets',
   SETTINGS: 'fc_settings',
-  USERS: 'fc_users' // New collection for user profiles/subscriptions
+  USERS: 'fc_users' 
 };
 
 // ----------------------------------------------------------------------
@@ -127,14 +127,11 @@ const SubscriptionModal = ({ isOpen, onClose, onSuccess }) => {
     try {
       console.log('Initiating subscription flow...');
       
-      // MOCK BACKEND CALL
-      // In production, this would fetch('/api/create-checkout-session')
       const mockSessionResponse = {
         ok: true,
         json: async () => ({ sessionId: 'mock_session_id_123' })
       };
       
-      // Simulate network delay
       await new Promise(resolve => setTimeout(resolve, 1500));
       
       const response = mockSessionResponse;
@@ -145,14 +142,11 @@ const SubscriptionModal = ({ isOpen, onClose, onSuccess }) => {
 
       const session = await response.json();
 
-      // SIMULATE STRIPE REDIRECT
-      // In production, use: const stripe = await stripePromise; stripe.redirectToCheckout(...)
       console.log('Redirecting to Stripe Checkout with session:', session.sessionId);
       
-      // Since we can't actually redirect in this demo without a real key, we simulate success
       await new Promise(resolve => setTimeout(resolve, 1000));
       
-      onSuccess(); // Trigger the success callback (create trip)
+      onSuccess(); 
       onClose();
 
     } catch (err) {
@@ -165,8 +159,6 @@ const SubscriptionModal = ({ isOpen, onClose, onSuccess }) => {
   return (
     <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-4 backdrop-blur-sm">
       <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in duration-200">
-        
-        {/* Header */}
         <div className="bg-slate-900 p-6 text-white text-center relative overflow-hidden">
           <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 rounded-full blur-3xl -mr-8 -mt-8"></div>
           <div className="relative z-10">
@@ -284,7 +276,7 @@ const SubscriptionModal = ({ isOpen, onClose, onSuccess }) => {
   );
 };
 
-// 2. Auth Screen (New Landing Page)
+// 2. Auth Screen
 const AuthScreen = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
@@ -302,7 +294,6 @@ const AuthScreen = () => {
       } else {
         await createUserWithEmailAndPassword(auth, email, password);
       }
-      // Successful auth will trigger onAuthStateChanged in App component
     } catch (err) {
       if (err.code === 'auth/operation-not-allowed') {
         try {
@@ -321,7 +312,6 @@ const AuthScreen = () => {
   return (
     <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4 font-sans">
       <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden flex flex-col">
-        {/* Header */}
         <div className="bg-emerald-800 p-8 text-center">
           <div className="w-16 h-16 bg-white/10 rounded-full flex items-center justify-center mx-auto mb-4 backdrop-blur-sm">
             <Flag className="w-8 h-8 text-yellow-400 fill-current" />
@@ -332,7 +322,6 @@ const AuthScreen = () => {
           </p>
         </div>
 
-        {/* Form */}
         <div className="p-8 flex-1">
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
@@ -381,7 +370,6 @@ const AuthScreen = () => {
             </button>
           </form>
 
-          {/* Toggle */}
           <div className="mt-8 pt-6 border-t border-slate-100 text-center">
             <p className="text-sm text-slate-500 mb-3">
               {isLogin ? "Don't have an account?" : "Already have an account?"}
@@ -399,7 +387,7 @@ const AuthScreen = () => {
   );
 };
 
-// 3. User Profile View (New)
+// 3. User Profile View
 const UserProfileView = ({ user, isSubscribed }) => {
   const [resetSent, setResetSent] = useState(false);
   const [cancelling, setCancelling] = useState(false);
@@ -446,7 +434,6 @@ const UserProfileView = ({ user, isSubscribed }) => {
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         <div className="p-6 space-y-6">
           
-          {/* Account Info */}
           <div className="space-y-4">
             <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wide">Account Details</h3>
             
@@ -481,7 +468,6 @@ const UserProfileView = ({ user, isSubscribed }) => {
             </div>
           </div>
 
-          {/* Subscription Info */}
           <div className="space-y-4 pt-4">
             <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wide">Subscription</h3>
             
@@ -541,7 +527,7 @@ const Layout = ({ children, view, setView, user, role, setRole, tripId, setTripI
     { id: 'tournament', label: 'Tournament', icon: Trophy },
     { id: 'booking', label: 'Book Rounds', icon: Globe },
     { id: 'travel', label: 'Stays/Transport', icon: Car },
-    { id: 'merch', label: 'Team Merch', icon: ShoppingBag }, // New Tab Added
+    { id: 'merch', label: 'Team Merch', icon: ShoppingBag }, 
     { id: 'logistics', label: 'Logistics', icon: Calendar },
     { id: 'finance', label: 'The Ledger', icon: DollarSign },
     { id: 'players', label: 'Roster', icon: Users },
@@ -723,23 +709,31 @@ const TripSetupView = ({ setTripId, setRole, setView, user, isSubscribed }) => {
   const [joinCode, setJoinCode] = useState('');
   const [showSubscription, setShowSubscription] = useState(false);
 
-  // Database helper for enabling subscription
   const enableSubscription = async () => {
-    // Write { isPro: true } to artifacts/{appId}/public/data/fc_users/{uid}
     const validAppId = typeof appId === 'string' ? appId : 'default-app-id';
     await setDoc(doc(db, 'artifacts', validAppId, 'public', 'data', COLLECTIONS.USERS, user.uid), { 
       isPro: true,
       email: user.email,
-      updatedAt: new Date().toISOString()
+      updatedAt: new Date().toISOString(),
+      currentTripId: Math.random().toString(36).substring(2, 8).toUpperCase(), // Temp generated for immediate use
+      currentTripRole: 'commissioner'
     }, { merge: true });
   };
 
-  const finalizeCreateTrip = () => {
-    // Generate a random 6-char code
+  const finalizeCreateTrip = async () => {
     const newCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+    
+    // Save new trip as current in user profile
+    const validAppId = typeof appId === 'string' ? appId : 'default-app-id';
+    await setDoc(doc(db, 'artifacts', validAppId, 'public', 'data', COLLECTIONS.USERS, user.uid), { 
+      currentTripId: newCode,
+      currentTripRole: 'commissioner',
+      updatedAt: new Date().toISOString()
+    }, { merge: true });
+
     setTripId(newCode);
     setRole('commissioner');
-    setView('dashboard'); // Auto-navigate
+    setView('dashboard');
   };
 
   const handleCreateTrip = () => {
@@ -751,16 +745,33 @@ const TripSetupView = ({ setTripId, setRole, setView, user, isSubscribed }) => {
   };
 
   const onPaymentSuccess = async () => {
-    await enableSubscription();
+    // Enable sub AND create trip
+    const validAppId = typeof appId === 'string' ? appId : 'default-app-id';
+    await setDoc(doc(db, 'artifacts', validAppId, 'public', 'data', COLLECTIONS.USERS, user.uid), { 
+      isPro: true,
+      email: user.email,
+      updatedAt: new Date().toISOString()
+    }, { merge: true });
+    
     finalizeCreateTrip();
   };
 
-  const handleJoinTrip = (e) => {
+  const handleJoinTrip = async (e) => {
     e.preventDefault();
     if (joinCode.length < 3) return;
-    setTripId(joinCode.toUpperCase());
+    const code = joinCode.toUpperCase();
+    
+    // Save joined trip as current
+    const validAppId = typeof appId === 'string' ? appId : 'default-app-id';
+    await setDoc(doc(db, 'artifacts', validAppId, 'public', 'data', COLLECTIONS.USERS, user.uid), { 
+      currentTripId: code,
+      currentTripRole: 'player',
+      updatedAt: new Date().toISOString()
+    }, { merge: true });
+
+    setTripId(code);
     setRole('player');
-    setView('dashboard'); // Auto-navigate
+    setView('dashboard');
   };
 
   return (
@@ -1714,7 +1725,7 @@ const App = () => {
     setIsSubscribed(false);
   };
 
-  // Subscription Status Sync (User specific)
+  // Subscription Status & Active Trip Sync
   useEffect(() => {
     if (!user) {
       setIsSubscribed(false);
@@ -1723,14 +1734,23 @@ const App = () => {
 
     const validAppId = typeof appId === 'string' ? appId : 'default-app-id';
     const unsubUser = onSnapshot(doc(db, 'artifacts', validAppId, 'public', 'data', COLLECTIONS.USERS, user.uid), (doc) => {
-      if (doc.exists() && doc.data().isPro) {
-        setIsSubscribed(true);
+      if (doc.exists()) {
+        const data = doc.data();
+        setIsSubscribed(!!data.isPro);
+        
+        // Auto-Load Active Trip if one exists and we aren't already in it
+        if (data.currentTripId && !tripId) {
+          console.log("Restoring active trip:", data.currentTripId);
+          setTripId(data.currentTripId);
+          if (data.currentTripRole) setRole(data.currentTripRole);
+          setView('dashboard');
+        }
       } else {
         setIsSubscribed(false);
       }
     });
     return () => unsubUser();
-  }, [user]);
+  }, [user, tripId]); // Depend on tripId so we don't re-set it unnecessarily
 
   // Data Sync - Filters by TripID
   useEffect(() => {
