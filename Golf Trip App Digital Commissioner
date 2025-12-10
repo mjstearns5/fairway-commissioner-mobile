@@ -111,7 +111,7 @@ const stripePromise = loadStripe(STRIPE_PUBLISHABLE_KEY);
 
 // --- Components ---
 
-// 1. Subscription Modal (New)
+// 1. Subscription Modal
 const SubscriptionModal = ({ isOpen, onClose, onSuccess }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -179,7 +179,7 @@ const SubscriptionModal = ({ isOpen, onClose, onSuccess }) => {
                 </div>
                 <h3 className="text-lg font-bold text-slate-800">Become the Commissioner</h3>
                 <p className="text-slate-500 text-sm mt-2">
-                  Creating a trip requires a pro license. Manage tournaments, expenses, and logistics like a pro.
+                  Creating or joining a trip requires a pro license. Manage tournaments, expenses, and logistics like a pro.
                 </p>
               </div>
               
@@ -249,7 +249,7 @@ const SubscriptionModal = ({ isOpen, onClose, onSuccess }) => {
                   </>
                 ) : (
                   <>
-                    Pay $15.00 & Create Trip
+                    Pay $15.00 & Continue
                     <CheckCircle className="w-5 h-5" />
                   </>
                 )}
@@ -407,7 +407,6 @@ const UserProfileView = ({ user, isSubscribed }) => {
     setCancelling(true);
     try {
       const validAppId = typeof appId === 'string' ? appId : 'default-app-id';
-      // Set isPro to false in database
       await setDoc(doc(db, 'artifacts', validAppId, 'public', 'data', COLLECTIONS.USERS, user.uid), { 
         isPro: false,
         updatedAt: new Date().toISOString()
@@ -517,7 +516,26 @@ const UserProfileView = ({ user, isSubscribed }) => {
   );
 };
 
-// 4. Navigation & Layout
+// 4. Restricted Access View
+const RestrictedAccessView = ({ setView }) => (
+  <div className="flex flex-col items-center justify-center h-[calc(100vh-200px)] text-center p-8 animate-in fade-in zoom-in duration-300">
+    <div className="w-24 h-24 bg-slate-100 rounded-full flex items-center justify-center mb-6">
+      <Lock className="w-12 h-12 text-slate-400" />
+    </div>
+    <h2 className="text-3xl font-bold text-slate-800 mb-2">Trip Access Locked</h2>
+    <p className="text-slate-500 max-w-md mb-8 leading-relaxed">
+      You must create or join a trip to view this content. An active subscription is required to participate.
+    </p>
+    <button 
+      onClick={() => setView('setup')}
+      className="bg-emerald-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-emerald-700 transition-all shadow-lg hover:shadow-emerald-200 hover:-translate-y-1 flex items-center gap-2"
+    >
+      Go to Trip Setup <ArrowRight className="w-5 h-5" />
+    </button>
+  </div>
+);
+
+// 5. Navigation & Layout
 const Layout = ({ children, view, setView, user, role, setRole, tripId, setTripId, handleLogout }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
@@ -532,11 +550,6 @@ const Layout = ({ children, view, setView, user, role, setRole, tripId, setTripI
     { id: 'finance', label: 'The Ledger', icon: DollarSign },
     { id: 'players', label: 'Roster', icon: Users },
   ];
-
-  // Filter nav items based on if a trip is selected
-  const visibleNavItems = tripId 
-    ? navItems 
-    : navItems.filter(i => i.id === 'setup');
 
   const handleExitTrip = () => {
     setTripId(null);
@@ -627,7 +640,7 @@ const Layout = ({ children, view, setView, user, role, setRole, tripId, setTripI
              </div>
            )}
 
-          {visibleNavItems.map((item) => (
+          {navItems.map((item) => (
             <button
               key={item.id}
               onClick={() => { setView(item.id); setIsMenuOpen(false); }}
@@ -681,7 +694,7 @@ const Layout = ({ children, view, setView, user, role, setRole, tripId, setTripI
 
             <div className="space-y-2">
               <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2 px-3">Menu</div>
-              {visibleNavItems.map((item) => (
+              {navItems.map((item) => (
                 <button
                   key={item.id}
                   onClick={() => setView(item.id)}
@@ -704,27 +717,25 @@ const Layout = ({ children, view, setView, user, role, setRole, tripId, setTripI
   );
 };
 
-// 5. Trip Setup View
+// 6. Trip Setup View
 const TripSetupView = ({ setTripId, setRole, setView, user, isSubscribed }) => {
   const [joinCode, setJoinCode] = useState('');
   const [showSubscription, setShowSubscription] = useState(false);
+  const [pendingAction, setPendingAction] = useState(null); // { type: 'create' | 'join', code?: string }
 
   const enableSubscription = async () => {
     const validAppId = typeof appId === 'string' ? appId : 'default-app-id';
     await setDoc(doc(db, 'artifacts', validAppId, 'public', 'data', COLLECTIONS.USERS, user.uid), { 
       isPro: true,
       email: user.email,
-      updatedAt: new Date().toISOString(),
-      currentTripId: Math.random().toString(36).substring(2, 8).toUpperCase(), // Temp generated for immediate use
-      currentTripRole: 'commissioner'
+      updatedAt: new Date().toISOString()
     }, { merge: true });
   };
 
   const finalizeCreateTrip = async () => {
     const newCode = Math.random().toString(36).substring(2, 8).toUpperCase();
-    
-    // Save new trip as current in user profile
     const validAppId = typeof appId === 'string' ? appId : 'default-app-id';
+    
     await setDoc(doc(db, 'artifacts', validAppId, 'public', 'data', COLLECTIONS.USERS, user.uid), { 
       currentTripId: newCode,
       currentTripRole: 'commissioner',
@@ -736,32 +747,7 @@ const TripSetupView = ({ setTripId, setRole, setView, user, isSubscribed }) => {
     setView('dashboard');
   };
 
-  const handleCreateTrip = () => {
-    if (isSubscribed) {
-      finalizeCreateTrip();
-    } else {
-      setShowSubscription(true);
-    }
-  };
-
-  const onPaymentSuccess = async () => {
-    // Enable sub AND create trip
-    const validAppId = typeof appId === 'string' ? appId : 'default-app-id';
-    await setDoc(doc(db, 'artifacts', validAppId, 'public', 'data', COLLECTIONS.USERS, user.uid), { 
-      isPro: true,
-      email: user.email,
-      updatedAt: new Date().toISOString()
-    }, { merge: true });
-    
-    finalizeCreateTrip();
-  };
-
-  const handleJoinTrip = async (e) => {
-    e.preventDefault();
-    if (joinCode.length < 3) return;
-    const code = joinCode.toUpperCase();
-    
-    // Save joined trip as current
+  const finalizeJoinTrip = async (code) => {
     const validAppId = typeof appId === 'string' ? appId : 'default-app-id';
     await setDoc(doc(db, 'artifacts', validAppId, 'public', 'data', COLLECTIONS.USERS, user.uid), { 
       currentTripId: code,
@@ -772,6 +758,40 @@ const TripSetupView = ({ setTripId, setRole, setView, user, isSubscribed }) => {
     setTripId(code);
     setRole('player');
     setView('dashboard');
+  };
+
+  const handleCreateTrip = () => {
+    if (isSubscribed) {
+      finalizeCreateTrip();
+    } else {
+      setPendingAction({ type: 'create' });
+      setShowSubscription(true);
+    }
+  };
+
+  const handleJoinTrip = (e) => {
+    e.preventDefault();
+    if (joinCode.length < 3) return;
+    const code = joinCode.toUpperCase();
+
+    if (isSubscribed) {
+      finalizeJoinTrip(code);
+    } else {
+      setPendingAction({ type: 'join', code });
+      setShowSubscription(true);
+    }
+  };
+
+  const onPaymentSuccess = async () => {
+    await enableSubscription();
+    
+    // Resume pending action
+    if (pendingAction?.type === 'create') {
+      await finalizeCreateTrip();
+    } else if (pendingAction?.type === 'join') {
+      await finalizeJoinTrip(pendingAction.code);
+    }
+    setPendingAction(null);
   };
 
   return (
@@ -827,7 +847,7 @@ const TripSetupView = ({ setTripId, setRole, setView, user, isSubscribed }) => {
                 maxLength={6}
               />
               <button disabled={!joinCode} className="bg-slate-900 text-white px-4 py-2 rounded-lg font-bold hover:bg-slate-800 disabled:opacity-50">
-                Join
+                {isSubscribed ? 'Join' : 'Unlock'}
               </button>
             </form>
           </div>
@@ -837,7 +857,7 @@ const TripSetupView = ({ setTripId, setRole, setView, user, isSubscribed }) => {
   );
 };
 
-// 6. Book Rounds View (Placeholder)
+// 7. Book Rounds View (Placeholder)
 const BookRoundsView = () => {
   return (
     <div className="flex flex-col items-center justify-center h-96 text-center space-y-4">
@@ -854,7 +874,7 @@ const BookRoundsView = () => {
   );
 };
 
-// 7. Stays/Transport View (Placeholder)
+// 8. Stays/Transport View (Placeholder)
 const StaysTransportView = () => {
   return (
     <div className="flex flex-col items-center justify-center h-96 text-center space-y-4">
@@ -871,7 +891,7 @@ const StaysTransportView = () => {
   );
 };
 
-// 8. Team Merch View (New Placeholder Component)
+// 9. Team Merch View (New Placeholder Component)
 const TeamMerchView = () => {
   return (
     <div className="flex flex-col items-center justify-center h-96 text-center space-y-4">
@@ -888,7 +908,7 @@ const TeamMerchView = () => {
   );
 };
 
-// 9. Roster Management
+// 10. Roster Management
 const RosterView = ({ players, addPlayer, deletePlayer, updatePlayer, role, teamNames }) => {
   const [newName, setNewName] = useState('');
   const [newHcp, setNewHcp] = useState('');
@@ -999,7 +1019,7 @@ const RosterView = ({ players, addPlayer, deletePlayer, updatePlayer, role, team
   );
 };
 
-// 10. Tournament Engine
+// 11. Tournament Engine
 const TournamentView = ({ players, matches, updateMatch, addMatch, deleteMatch, role, teamNames, updateTeamNames }) => {
   const [activeTab, setActiveTab] = useState('matchups');
   const [isEditingNames, setIsEditingNames] = useState(false);
@@ -1213,7 +1233,7 @@ const TournamentView = ({ players, matches, updateMatch, addMatch, deleteMatch, 
   );
 };
 
-// 11. Logistics Hub
+// 12. Logistics Hub
 const LogisticsView = ({ itinerary, addItinerary, deleteItinerary, role }) => {
   const [form, setForm] = useState({ type: 'Golf', time: '', title: '', location: '' });
 
@@ -1319,7 +1339,7 @@ const LogisticsView = ({ itinerary, addItinerary, deleteItinerary, role }) => {
   );
 };
 
-// 12. The Ledger (Expenses & Betting)
+// 13. The Ledger (Expenses & Betting)
 const LedgerView = ({ players, expenses, bets, addExpense, addBet, deleteItem, role }) => {
   const [view, setView] = useState('summary'); // summary, addExpense, addBet
   const [expenseForm, setExpenseForm] = useState({ payerId: '', amount: '', description: '' });
@@ -1559,7 +1579,7 @@ const LedgerView = ({ players, expenses, bets, addExpense, addBet, deleteItem, r
   );
 };
 
-// 13. Dashboard
+// 14. Dashboard
 const Dashboard = ({ players, matches, itinerary, setView, role, teamNames }) => {
   const nextEvent = itinerary
     .filter(i => new Date(i.time) > new Date())
@@ -1690,12 +1710,9 @@ const App = () => {
           console.log("Signing in with custom token");
           await signInWithCustomToken(auth, __initial_auth_token);
         } 
-        // We removed signInAnonymously auto-login here to force Login Screen
-        // If no token, user remains null, and AuthScreen shows.
       } catch (error) {
         console.error("Auth Initialization Error:", error);
       } finally {
-        // Stop loading spinner if we aren't waiting on a token
         if (typeof __initial_auth_token === 'undefined' || !__initial_auth_token) {
            // We might want to keep loading false so AuthScreen renders
         }
@@ -1706,10 +1723,8 @@ const App = () => {
     // Listen for Auth Changes
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       if (currentUser) {
-        console.log("User Authenticated:", currentUser.uid);
         setUser(currentUser);
       } else {
-        console.log("User signed out.");
         setUser(null);
       }
       setLoading(false); // Auth check done
@@ -1743,7 +1758,7 @@ const App = () => {
           console.log("Restoring active trip:", data.currentTripId);
           setTripId(data.currentTripId);
           if (data.currentTripRole) setRole(data.currentTripRole);
-          setView('dashboard');
+          setView('setup'); // Land on setup, let them choose to enter dashboard
         }
       } else {
         setIsSubscribed(false);
@@ -1837,6 +1852,33 @@ const App = () => {
     return <AuthScreen />;
   }
 
+  // RENDER LOGIC:
+  // If view is setup or profile, always show.
+  // If tripId is null, show RestrictedAccessView for any other tab.
+  // If tripId is active, show the actual tab.
+  
+  let currentContent;
+  if (view === 'setup') {
+    currentContent = <TripSetupView setTripId={setTripId} setRole={setRole} setView={setView} user={user} isSubscribed={isSubscribed} />;
+  } else if (view === 'profile') {
+    currentContent = <UserProfileView user={user} isSubscribed={isSubscribed} />;
+  } else if (!tripId) {
+    currentContent = <RestrictedAccessView setView={setView} />;
+  } else {
+    // We have a tripId, render the requested view
+    switch(view) {
+      case 'dashboard': currentContent = <Dashboard players={players} matches={matches} itinerary={itinerary} setView={setView} role={role} teamNames={teamNames} />; break;
+      case 'players': currentContent = <RosterView players={players} addPlayer={addPlayer} deletePlayer={deletePlayer} updatePlayer={updatePlayer} role={role} teamNames={teamNames} />; break;
+      case 'tournament': currentContent = <TournamentView players={players} matches={matches} updateMatch={updateMatch} addMatch={addMatch} deleteMatch={deleteMatch} role={role} teamNames={teamNames} updateTeamNames={updateTeamNames} />; break;
+      case 'booking': currentContent = <BookRoundsView />; break;
+      case 'travel': currentContent = <StaysTransportView />; break;
+      case 'merch': currentContent = <TeamMerchView />; break;
+      case 'logistics': currentContent = <LogisticsView itinerary={itinerary} addItinerary={addItinerary} deleteItinerary={deleteItinerary} role={role} />; break;
+      case 'finance': currentContent = <LedgerView players={players} expenses={expenses} bets={bets} addExpense={addExpense} addBet={addBet} deleteItem={deleteLedgerItem} role={role} />; break;
+      default: currentContent = <Dashboard players={players} matches={matches} itinerary={itinerary} setView={setView} role={role} teamNames={teamNames} />;
+    }
+  }
+
   return (
     <Layout 
       view={view} 
@@ -1848,33 +1890,7 @@ const App = () => {
       setTripId={setTripId}
       handleLogout={handleLogout}
     >
-      {view === 'setup' && (
-        <TripSetupView 
-          setTripId={setTripId} 
-          setRole={setRole} 
-          setView={setView} 
-          user={user} 
-          isSubscribed={isSubscribed} 
-        />
-      )}
-      {view === 'profile' && (
-        <UserProfileView 
-          user={user}
-          isSubscribed={isSubscribed}
-        />
-      )}
-      {tripId && view !== 'profile' && (
-        <>
-          {view === 'dashboard' && <Dashboard players={players} matches={matches} itinerary={itinerary} setView={setView} role={role} teamNames={teamNames} />}
-          {view === 'players' && <RosterView players={players} addPlayer={addPlayer} deletePlayer={deletePlayer} updatePlayer={updatePlayer} role={role} teamNames={teamNames} />}
-          {view === 'tournament' && <TournamentView players={players} matches={matches} updateMatch={updateMatch} addMatch={addMatch} deleteMatch={deleteMatch} role={role} teamNames={teamNames} updateTeamNames={updateTeamNames} />}
-          {view === 'booking' && <BookRoundsView />}
-          {view === 'travel' && <StaysTransportView />}
-          {view === 'merch' && <TeamMerchView />}
-          {view === 'logistics' && <LogisticsView itinerary={itinerary} addItinerary={addItinerary} deleteItinerary={deleteItinerary} role={role} />}
-          {view === 'finance' && <LedgerView players={players} expenses={expenses} bets={bets} addExpense={addExpense} addBet={addBet} deleteItem={deleteLedgerItem} role={role} />}
-        </>
-      )}
+      {currentContent}
     </Layout>
   );
 };
