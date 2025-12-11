@@ -37,8 +37,10 @@ import {
   ShoppingBag,
   UserCircle,
   AlertTriangle,
-  MessageSquare, // Added for Messages tab
-  Send // Added for sending messages
+  MessageSquare, 
+  Send,
+  Briefcase,
+  ChevronLeft
 } from 'lucide-react';
 import { initializeApp } from "firebase/app";
 import { 
@@ -80,7 +82,7 @@ const COLLECTIONS = {
   BETS: 'fc_bets',
   SETTINGS: 'fc_settings',
   USERS: 'fc_users',
-  MESSAGES: 'fc_messages' // New collection for chat
+  MESSAGES: 'fc_messages' 
 };
 
 // ----------------------------------------------------------------------
@@ -88,7 +90,7 @@ const COLLECTIONS = {
 // ----------------------------------------------------------------------
 const STRIPE_PUBLISHABLE_KEY = 'pk_test_YOUR_PUBLISHABLE_KEY_HERE';
 
-// Custom Stripe Loader Helper to avoid npm dependency issues
+// Custom Stripe Loader Helper
 const loadStripe = (publishableKey) => {
   if (window.Stripe) {
     return Promise.resolve(window.Stripe(publishableKey));
@@ -109,7 +111,6 @@ const loadStripe = (publishableKey) => {
   });
 };
 
-// Initialize Stripe promise
 const stripePromise = loadStripe(STRIPE_PUBLISHABLE_KEY);
 
 // --- Components ---
@@ -118,7 +119,7 @@ const stripePromise = loadStripe(STRIPE_PUBLISHABLE_KEY);
 const SubscriptionModal = ({ isOpen, onClose, onSuccess }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const [step, setStep] = useState('info'); // info | payment
+  const [step, setStep] = useState('info'); 
 
   if (!isOpen) return null;
 
@@ -538,7 +539,7 @@ const RestrictedAccessView = ({ setView }) => (
   </div>
 );
 
-// 5. Messages View (New)
+// 5. Messages View
 const MessagesView = ({ messages, addMessage, user }) => {
   const [newMessage, setNewMessage] = useState('');
   const messagesEndRef = useRef(null);
@@ -555,7 +556,6 @@ const MessagesView = ({ messages, addMessage, user }) => {
     e.preventDefault();
     if (!newMessage.trim()) return;
     
-    // Sender Name Logic: Use part of email for simplicity
     const senderName = user?.email ? user.email.split('@')[0] : 'Guest';
     
     addMessage({
@@ -569,13 +569,11 @@ const MessagesView = ({ messages, addMessage, user }) => {
 
   return (
     <div className="h-[calc(100vh-140px)] flex flex-col bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-      {/* Header */}
       <div className="bg-slate-50 p-4 border-b border-slate-200 flex items-center gap-2">
         <MessageSquare className="w-5 h-5 text-emerald-600" />
         <h3 className="font-bold text-slate-700">Trip Chat</h3>
       </div>
 
-      {/* Message List */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50/50">
         {messages.length === 0 ? (
           <div className="text-center text-slate-400 mt-10">
@@ -610,7 +608,6 @@ const MessagesView = ({ messages, addMessage, user }) => {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input Area */}
       <div className="p-4 bg-white border-t border-slate-200">
         <form onSubmit={handleSend} className="flex gap-2">
           <input 
@@ -633,18 +630,147 @@ const MessagesView = ({ messages, addMessage, user }) => {
   );
 };
 
-// 6. Navigation & Layout
+// 6. Sub-views for Manage Trip (Defined before use)
+const BookRoundsView = () => {
+  return (
+    <div className="flex flex-col items-center justify-center h-96 text-center space-y-4">
+      <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center">
+        <Globe className="w-10 h-10 text-slate-400" />
+      </div>
+      <div>
+        <h3 className="text-2xl font-bold text-slate-700">Book Rounds</h3>
+        <p className="text-slate-500 max-w-sm mx-auto mt-2">
+          Search and book tee times directly from the app. Integration with booking providers is coming soon.
+        </p>
+      </div>
+    </div>
+  );
+};
+
+const StaysTransportView = () => {
+  return (
+    <div className="flex flex-col items-center justify-center h-96 text-center space-y-4">
+      <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center">
+        <Car className="w-10 h-10 text-slate-400" />
+      </div>
+      <div>
+        <h3 className="text-2xl font-bold text-slate-700">Stays & Transport</h3>
+        <p className="text-slate-500 max-w-sm mx-auto mt-2">
+          Book hotels, rental cars, and shuttles for your group. Integration with travel partners coming soon.
+        </p>
+      </div>
+    </div>
+  );
+};
+
+const TeamMerchView = () => {
+  return (
+    <div className="flex flex-col items-center justify-center h-96 text-center space-y-4">
+      <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center">
+        <ShoppingBag className="w-10 h-10 text-slate-400" />
+      </div>
+      <div>
+        <h3 className="text-2xl font-bold text-slate-700">Team Merch</h3>
+        <p className="text-slate-500 max-w-sm mx-auto mt-2">
+          Order custom polos, hats, and gear for your trip. Store integration coming soon.
+        </p>
+      </div>
+    </div>
+  );
+};
+
+// 7. Manage Trip View
+const ManageTripView = () => {
+  const [subView, setSubView] = useState(null);
+
+  if (subView === 'booking') {
+    return (
+      <div className="space-y-4">
+        <button onClick={() => setSubView(null)} className="flex items-center text-sm font-bold text-slate-500 hover:text-slate-800 transition-colors">
+          <ChevronLeft className="w-4 h-4 mr-1" /> Back to Management
+        </button>
+        <BookRoundsView />
+      </div>
+    );
+  }
+  if (subView === 'travel') {
+     return (
+      <div className="space-y-4">
+        <button onClick={() => setSubView(null)} className="flex items-center text-sm font-bold text-slate-500 hover:text-slate-800 transition-colors">
+          <ChevronLeft className="w-4 h-4 mr-1" /> Back to Management
+        </button>
+        <StaysTransportView />
+      </div>
+    );
+  }
+  if (subView === 'merch') {
+     return (
+      <div className="space-y-4">
+        <button onClick={() => setSubView(null)} className="flex items-center text-sm font-bold text-slate-500 hover:text-slate-800 transition-colors">
+          <ChevronLeft className="w-4 h-4 mr-1" /> Back to Management
+        </button>
+        <TeamMerchView />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold text-slate-800">Manage the Trip</h2>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* Book Rounds Tile */}
+        <div 
+          onClick={() => setSubView('booking')}
+          className="bg-white p-8 rounded-xl shadow-sm border border-slate-200 hover:border-emerald-500 transition-all cursor-pointer flex flex-col items-center text-center group"
+        >
+          <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mb-4 group-hover:bg-blue-100 transition-colors">
+            <Globe className="w-8 h-8" />
+          </div>
+          <h3 className="font-bold text-slate-800 text-lg">Book Rounds</h3>
+          <p className="text-sm text-slate-500 mt-2">Find and book tee times for your group.</p>
+        </div>
+
+        {/* Stays/Transport Tile */}
+        <div 
+           onClick={() => setSubView('travel')}
+           className="bg-white p-8 rounded-xl shadow-sm border border-slate-200 hover:border-emerald-500 transition-all cursor-pointer flex flex-col items-center text-center group"
+        >
+          <div className="w-16 h-16 bg-purple-50 text-purple-600 rounded-full flex items-center justify-center mb-4 group-hover:bg-purple-100 transition-colors">
+            <Car className="w-8 h-8" />
+          </div>
+          <h3 className="font-bold text-slate-800 text-lg">Stays & Transport</h3>
+          <p className="text-sm text-slate-500 mt-2">Arrange hotels and travel logistics.</p>
+        </div>
+
+        {/* Team Merch Tile */}
+        <div 
+           onClick={() => setSubView('merch')}
+           className="bg-white p-8 rounded-xl shadow-sm border border-slate-200 hover:border-emerald-500 transition-all cursor-pointer flex flex-col items-center text-center group"
+        >
+          <div className="w-16 h-16 bg-orange-50 text-orange-600 rounded-full flex items-center justify-center mb-4 group-hover:bg-orange-100 transition-colors">
+            <ShoppingBag className="w-8 h-8" />
+          </div>
+          <h3 className="font-bold text-slate-800 text-lg">Team Merch</h3>
+          <p className="text-sm text-slate-500 mt-2">Order custom gear for the squad.</p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// 8. Navigation & Layout
 const Layout = ({ children, view, setView, user, role, setRole, tripId, setTripId, handleLogout }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const navItems = [
     { id: 'setup', label: 'Trip Setup', icon: MapPin },
     { id: 'dashboard', label: 'Dashboard', icon: Activity },
-    { id: 'messages', label: 'Messages', icon: MessageSquare }, // New Nav Item
+    { id: 'messages', label: 'Messages', icon: MessageSquare }, 
     { id: 'tournament', label: 'Tournament', icon: Trophy },
-    { id: 'booking', label: 'Book Rounds', icon: Globe },
-    { id: 'travel', label: 'Stays/Transport', icon: Car },
-    { id: 'merch', label: 'Team Merch', icon: ShoppingBag }, 
+    { id: 'manage', label: 'Manage Trip', icon: Briefcase }, // Combined Tab
     { id: 'logistics', label: 'Logistics', icon: Calendar },
     { id: 'finance', label: 'The Ledger', icon: DollarSign },
     { id: 'players', label: 'Roster', icon: Users },
@@ -816,7 +942,7 @@ const Layout = ({ children, view, setView, user, role, setRole, tripId, setTripI
   );
 };
 
-// 7. Trip Setup View
+// 9. Trip Setup View
 const TripSetupView = ({ setTripId, setRole, setView, user, isSubscribed }) => {
   const [joinCode, setJoinCode] = useState('');
   const [showSubscription, setShowSubscription] = useState(false);
@@ -956,58 +1082,7 @@ const TripSetupView = ({ setTripId, setRole, setView, user, isSubscribed }) => {
   );
 };
 
-// 8. Book Rounds View (Placeholder)
-const BookRoundsView = () => {
-  return (
-    <div className="flex flex-col items-center justify-center h-96 text-center space-y-4">
-      <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center">
-        <Globe className="w-10 h-10 text-slate-400" />
-      </div>
-      <div>
-        <h3 className="text-2xl font-bold text-slate-700">Book Rounds</h3>
-        <p className="text-slate-500 max-w-sm mx-auto mt-2">
-          Search and book tee times directly from the app. Integration with booking providers is coming soon.
-        </p>
-      </div>
-    </div>
-  );
-};
-
-// 9. Stays/Transport View (Placeholder)
-const StaysTransportView = () => {
-  return (
-    <div className="flex flex-col items-center justify-center h-96 text-center space-y-4">
-      <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center">
-        <Car className="w-10 h-10 text-slate-400" />
-      </div>
-      <div>
-        <h3 className="text-2xl font-bold text-slate-700">Stays & Transport</h3>
-        <p className="text-slate-500 max-w-sm mx-auto mt-2">
-          Book hotels, rental cars, and shuttles for your group. Integration with travel partners coming soon.
-        </p>
-      </div>
-    </div>
-  );
-};
-
-// 10. Team Merch View (New Placeholder Component)
-const TeamMerchView = () => {
-  return (
-    <div className="flex flex-col items-center justify-center h-96 text-center space-y-4">
-      <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center">
-        <ShoppingBag className="w-10 h-10 text-slate-400" />
-      </div>
-      <div>
-        <h3 className="text-2xl font-bold text-slate-700">Team Merch</h3>
-        <p className="text-slate-500 max-w-sm mx-auto mt-2">
-          Order custom polos, hats, and gear for your trip. Store integration coming soon.
-        </p>
-      </div>
-    </div>
-  );
-};
-
-// 11. Roster Management
+// 10. Roster Management
 const RosterView = ({ players, addPlayer, deletePlayer, updatePlayer, role, teamNames }) => {
   const [newName, setNewName] = useState('');
   const [newHcp, setNewHcp] = useState('');
@@ -1118,7 +1193,7 @@ const RosterView = ({ players, addPlayer, deletePlayer, updatePlayer, role, team
   );
 };
 
-// 12. Tournament Engine
+// 11. Tournament Engine
 const TournamentView = ({ players, matches, updateMatch, addMatch, deleteMatch, role, teamNames, updateTeamNames }) => {
   const [activeTab, setActiveTab] = useState('matchups');
   const [isEditingNames, setIsEditingNames] = useState(false);
@@ -1803,7 +1878,7 @@ const App = () => {
   const [teamNames, setTeamNames] = useState({ red: 'Red Team', blue: 'Blue Team' });
   const [messages, setMessages] = useState([]); // Added state for messages
 
-  // ... (Auth & Initial Load logic same as before) ...
+  // Auth & Initial Load
   useEffect(() => {
     const initAuth = async () => {
       try {
@@ -1902,7 +1977,7 @@ const App = () => {
       setBets(snap.docs.map(d => ({id: d.id, ...d.data()})).filter(d => d.tripId === tripId));
     }, (err) => console.error("Bets sync error:", err));
 
-    // NEW: Messages Sync
+    // Messages Sync
     const unsubMessages = onSnapshot(getCol(COLLECTIONS.MESSAGES), (snap) => {
       const msgs = snap.docs.map(d => ({id: d.id, ...d.data()})).filter(d => d.tripId === tripId);
       // Sort locally by timestamp string
@@ -1951,7 +2026,6 @@ const App = () => {
      await deleteDoc(doc(db, 'artifacts', validAppId, 'public', 'data', collectionName, id));
   };
 
-  // NEW: Add Message Action
   const addMessage = async (data) => {
     await addDoc(getCol(COLLECTIONS.MESSAGES), { ...data, tripId });
   };
@@ -1978,10 +2052,8 @@ const App = () => {
       case 'dashboard': currentContent = <Dashboard players={players} matches={matches} itinerary={itinerary} setView={setView} role={role} teamNames={teamNames} />; break;
       case 'players': currentContent = <RosterView players={players} addPlayer={addPlayer} deletePlayer={deletePlayer} updatePlayer={updatePlayer} role={role} teamNames={teamNames} />; break;
       case 'tournament': currentContent = <TournamentView players={players} matches={matches} updateMatch={updateMatch} addMatch={addMatch} deleteMatch={deleteMatch} role={role} teamNames={teamNames} updateTeamNames={updateTeamNames} />; break;
-      case 'messages': currentContent = <MessagesView messages={messages} addMessage={addMessage} user={user} />; break; // Added
-      case 'booking': currentContent = <BookRoundsView />; break;
-      case 'travel': currentContent = <StaysTransportView />; break;
-      case 'merch': currentContent = <TeamMerchView />; break;
+      case 'messages': currentContent = <MessagesView messages={messages} addMessage={addMessage} user={user} />; break; 
+      case 'manage': currentContent = <ManageTripView />; break; 
       case 'logistics': currentContent = <LogisticsView itinerary={itinerary} addItinerary={addItinerary} deleteItinerary={deleteItinerary} role={role} />; break;
       case 'finance': currentContent = <LedgerView players={players} expenses={expenses} bets={bets} addExpense={addExpense} addBet={addBet} deleteItem={deleteLedgerItem} role={role} />; break;
       default: currentContent = <Dashboard players={players} matches={matches} itinerary={itinerary} setView={setView} role={role} teamNames={teamNames} />;
