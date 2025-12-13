@@ -1543,7 +1543,7 @@ const Dashboard = ({ players, matches, itinerary, setView, role, teamNames }) =>
 
 
 // --- Main App Container ---
-const App = () => {
+const GolfTripCommissioner = () => {
   const [user, setUser] = useState(null);
   const [view, setView] = useState('setup'); // Default to setup
   const [role, setRole] = useState('player'); 
