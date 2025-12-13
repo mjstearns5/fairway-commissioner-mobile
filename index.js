@@ -1,11 +1,15 @@
-// src/index.js
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import App from './App'; // This connects to your main App file
+
+// The import path now matches your new filename
+// (Note: You don't need to type .jsx at the end, React figures it out)
+import GolfTripCommissioner from './GolfTripCommissioner';
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
+
 root.render(
   <React.StrictMode>
-    <App />
+    {/* This tells React to render your Golf Commissioner component */}
+    <GolfTripCommissioner />
   </React.StrictMode>
 );
