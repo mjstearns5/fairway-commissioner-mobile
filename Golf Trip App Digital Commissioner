@@ -42,48 +42,6 @@ import {
   Briefcase,
   ChevronLeft
 } from 'lucide-react';
-import { initializeApp } from "firebase/app";
-import { 
-  getAuth, 
-  signInAnonymously, 
-  onAuthStateChanged,
-  signInWithCustomToken,
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-  sendPasswordResetEmail
-} from "firebase/auth";
-import { 
-  getFirestore, 
-  collection, 
-  doc, 
-  setDoc, 
-  onSnapshot, 
-  addDoc, 
-  deleteDoc, 
-  updateDoc,
-  query,
-  orderBy,
-  getDoc
-} from "firebase/firestore";
-
-// --- Firebase Configuration & Initialization ---
-const firebaseConfig = JSON.parse(__firebase_config);
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
-const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-
-// --- Constants for Collections ---
-const COLLECTIONS = {
-  PLAYERS: 'fc_players',
-  MATCHES: 'fc_matches',
-  ITINERARY: 'fc_itinerary',
-  EXPENSES: 'fc_expenses',
-  BETS: 'fc_bets',
-  SETTINGS: 'fc_settings',
-  USERS: 'fc_users',
-  MESSAGES: 'fc_messages' 
-};
 
 // ----------------------------------------------------------------------
 // STRIPE CONFIGURATION & LOADER
@@ -281,36 +239,20 @@ const SubscriptionModal = ({ isOpen, onClose, onSuccess }) => {
 };
 
 // 2. Auth Screen
-const AuthScreen = () => {
+const AuthScreen = ({ onLogin }) => {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
     setLoading(true);
-    try {
-      if (isLogin) {
-        await signInWithEmailAndPassword(auth, email, password);
-      } else {
-        await createUserWithEmailAndPassword(auth, email, password);
-      }
-    } catch (err) {
-      if (err.code === 'auth/operation-not-allowed') {
-        try {
-          await signInAnonymously(auth);
-        } catch (anonErr) {
-          setError("Demo login failed. Please reload.");
-          setLoading(false);
-        }
-      } else {
-        setError(err.message.replace('Firebase: ', ''));
-        setLoading(false);
-      }
-    }
+    // Simulate API call
+    setTimeout(() => {
+      onLogin({ uid: 'mock-user-123', email: email });
+      setLoading(false);
+    }, 800);
   };
 
   return (
@@ -358,12 +300,6 @@ const AuthScreen = () => {
               </div>
             </div>
 
-            {error && (
-              <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm flex items-start gap-2">
-                <span className="font-bold">Error:</span> {error}
-              </div>
-            )}
-
             <button 
               type="submit" 
               disabled={loading}
@@ -379,7 +315,7 @@ const AuthScreen = () => {
               {isLogin ? "Don't have an account?" : "Already have an account?"}
             </p>
             <button 
-              onClick={() => { setIsLogin(!isLogin); setError(''); }}
+              onClick={() => { setIsLogin(!isLogin); }}
               className="text-emerald-700 font-bold hover:text-emerald-900 hover:underline transition-colors"
             >
               {isLogin ? 'Create an Account' : 'Log In with Email'}
@@ -392,34 +328,23 @@ const AuthScreen = () => {
 };
 
 // 3. User Profile View
-const UserProfileView = ({ user, isSubscribed }) => {
+const UserProfileView = ({ user, isSubscribed, toggleSubscription }) => {
   const [resetSent, setResetSent] = useState(false);
   const [cancelling, setCancelling] = useState(false);
 
   const handlePasswordReset = async () => {
-    try {
-      await sendPasswordResetEmail(auth, user.email);
-      setResetSent(true);
-    } catch (error) {
-      console.error("Error sending reset email", error);
-    }
+    // Mock reset
+    setResetSent(true);
   };
 
   const handleCancelSubscription = async () => {
     if (!window.confirm("Are you sure you want to cancel your Commissioner license? You will lose access to creating new trips.")) return;
     
     setCancelling(true);
-    try {
-      const validAppId = typeof appId === 'string' ? appId : 'default-app-id';
-      await setDoc(doc(db, 'artifacts', validAppId, 'public', 'data', COLLECTIONS.USERS, user.uid), { 
-        isPro: false,
-        updatedAt: new Date().toISOString()
-      }, { merge: true });
-    } catch (error) {
-      console.error("Error cancelling subscription", error);
-    } finally {
+    setTimeout(() => {
+      toggleSubscription(false);
       setCancelling(false);
-    }
+    }, 1000);
   };
 
   return (
@@ -559,6 +484,7 @@ const MessagesView = ({ messages, addMessage, user }) => {
     const senderName = user?.email ? user.email.split('@')[0] : 'Guest';
     
     addMessage({
+      id: Date.now().toString(),
       text: newMessage,
       senderId: user?.uid || 'anon',
       senderName: senderName,
@@ -630,7 +556,7 @@ const MessagesView = ({ messages, addMessage, user }) => {
   );
 };
 
-// 6. Sub-views for Manage Trip (Defined before use)
+// 6. Sub-views for Manage Trip
 const BookRoundsView = () => {
   return (
     <div className="flex flex-col items-center justify-center h-96 text-center space-y-4">
@@ -943,43 +869,28 @@ const Layout = ({ children, view, setView, user, role, setRole, tripId, setTripI
 };
 
 // 9. Trip Setup View
-const TripSetupView = ({ setTripId, setRole, setView, user, isSubscribed }) => {
+const TripSetupView = ({ setTripId, setRole, setView, user, isSubscribed, toggleSubscription }) => {
   const [joinCode, setJoinCode] = useState('');
   const [showSubscription, setShowSubscription] = useState(false);
   const [pendingAction, setPendingAction] = useState(null); 
 
-  const enableSubscription = async () => {
-    const validAppId = typeof appId === 'string' ? appId : 'default-app-id';
-    await setDoc(doc(db, 'artifacts', validAppId, 'public', 'data', COLLECTIONS.USERS, user.uid), { 
-      isPro: true,
-      email: user.email,
-      updatedAt: new Date().toISOString()
-    }, { merge: true });
+  // Local helper to enable subscription state
+  const enableSubscription = () => {
+    toggleSubscription(true);
   };
 
-  const finalizeCreateTrip = async () => {
+  const finalizeCreateTrip = () => {
+    // Generate a random 6-char code
     const newCode = Math.random().toString(36).substring(2, 8).toUpperCase();
-    const validAppId = typeof appId === 'string' ? appId : 'default-app-id';
     
-    await setDoc(doc(db, 'artifacts', validAppId, 'public', 'data', COLLECTIONS.USERS, user.uid), { 
-      currentTripId: newCode,
-      currentTripRole: 'commissioner',
-      updatedAt: new Date().toISOString()
-    }, { merge: true });
-
+    // In local mode, we just set state. A real app would persist this.
     setTripId(newCode);
     setRole('commissioner');
     setView('dashboard');
   };
 
-  const finalizeJoinTrip = async (code) => {
-    const validAppId = typeof appId === 'string' ? appId : 'default-app-id';
-    await setDoc(doc(db, 'artifacts', validAppId, 'public', 'data', COLLECTIONS.USERS, user.uid), { 
-      currentTripId: code,
-      currentTripRole: 'player',
-      updatedAt: new Date().toISOString()
-    }, { merge: true });
-
+  const finalizeJoinTrip = (code) => {
+    // In local mode, we just set state.
     setTripId(code);
     setRole('player');
     setView('dashboard');
@@ -1007,14 +918,14 @@ const TripSetupView = ({ setTripId, setRole, setView, user, isSubscribed }) => {
     }
   };
 
-  const onPaymentSuccess = async () => {
-    await enableSubscription();
+  const onPaymentSuccess = () => {
+    enableSubscription();
     
     // Resume pending action
     if (pendingAction?.type === 'create') {
-      await finalizeCreateTrip();
+      finalizeCreateTrip();
     } else if (pendingAction?.type === 'join') {
-      await finalizeJoinTrip(pendingAction.code);
+      finalizeJoinTrip(pendingAction.code);
     }
     setPendingAction(null);
   };
@@ -1864,7 +1775,6 @@ const Dashboard = ({ players, matches, itinerary, setView, role, teamNames }) =>
 const App = () => {
   const [user, setUser] = useState(null);
   const [view, setView] = useState('setup'); // Default to setup
-  const [loading, setLoading] = useState(true);
   const [role, setRole] = useState('player'); 
   const [tripId, setTripId] = useState(null); // Active Trip Context
   const [isSubscribed, setIsSubscribed] = useState(false); // New subscription state
@@ -1878,173 +1788,87 @@ const App = () => {
   const [teamNames, setTeamNames] = useState({ red: 'Red Team', blue: 'Blue Team' });
   const [messages, setMessages] = useState([]); // Added state for messages
 
-  // Auth & Initial Load
-  useEffect(() => {
-    const initAuth = async () => {
-      try {
-        console.log("Starting auth init...");
-        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-          console.log("Signing in with custom token");
-          await signInWithCustomToken(auth, __initial_auth_token);
-        } 
-      } catch (error) {
-        console.error("Auth Initialization Error:", error);
-      } finally {
-        if (typeof __initial_auth_token === 'undefined' || !__initial_auth_token) {
-           // We might want to keep loading false so AuthScreen renders
-        }
-      }
-    };
-    initAuth();
-    
-    // Listen for Auth Changes
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      if (currentUser) {
-        setUser(currentUser);
-      } else {
-        setUser(null);
-      }
-      setLoading(false); // Auth check done
-    });
-    return () => unsubscribe();
-  }, []);
+  const handleLogin = (mockUser) => {
+    setUser(mockUser);
+  };
 
   const handleLogout = async () => {
-    await auth.signOut();
     setUser(null);
     setTripId(null);
     setView('setup');
     setIsSubscribed(false);
   };
 
-  // Subscription Status & Active Trip Sync
-  useEffect(() => {
-    if (!user) {
-      setIsSubscribed(false);
-      return;
-    }
-
-    const validAppId = typeof appId === 'string' ? appId : 'default-app-id';
-    const unsubUser = onSnapshot(doc(db, 'artifacts', validAppId, 'public', 'data', COLLECTIONS.USERS, user.uid), (doc) => {
-      if (doc.exists()) {
-        const data = doc.data();
-        setIsSubscribed(!!data.isPro);
-        
-        // Auto-Load Active Trip if one exists and we aren't already in it
-        if (data.currentTripId && !tripId) {
-          console.log("Restoring active trip:", data.currentTripId);
-          setTripId(data.currentTripId);
-          if (data.currentTripRole) setRole(data.currentTripRole);
-          setView('setup'); 
-        }
-      } else {
-        setIsSubscribed(false);
-      }
-    });
-    return () => unsubUser();
-  }, [user, tripId]); 
-
-  // Data Sync - Filters by TripID
-  useEffect(() => {
-    if (!user || !tripId) {
-      return;
-    }
-    
-    console.log(`Starting data sync for App ID: ${appId}, Trip ID: ${tripId}`);
-
-    const validAppId = typeof appId === 'string' ? appId : 'default-app-id';
-    const getCol = (name) => collection(db, 'artifacts', validAppId, 'public', 'data', name);
-
-    const unsubPlayers = onSnapshot(getCol(COLLECTIONS.PLAYERS), (snap) => {
-      setPlayers(snap.docs.map(d => ({id: d.id, ...d.data()})).filter(d => d.tripId === tripId));
-    }, (err) => console.error("Players sync error:", err));
-
-    const unsubMatches = onSnapshot(getCol(COLLECTIONS.MATCHES), (snap) => {
-      const matchData = snap.docs.map(d => ({id: d.id, ...d.data()})).filter(d => d.tripId === tripId);
-      matchData.sort((a, b) => (a.day || '').localeCompare(b.day || ''));
-      setMatches(matchData);
-    }, (err) => console.error("Matches sync error:", err));
-
-    const unsubItinerary = onSnapshot(getCol(COLLECTIONS.ITINERARY), (snap) => {
-      setItinerary(snap.docs.map(d => ({id: d.id, ...d.data()})).filter(d => d.tripId === tripId));
-    }, (err) => console.error("Itinerary sync error:", err));
-
-    const unsubExpenses = onSnapshot(getCol(COLLECTIONS.EXPENSES), (snap) => {
-      setExpenses(snap.docs.map(d => ({id: d.id, ...d.data()})).filter(d => d.tripId === tripId));
-    }, (err) => console.error("Expenses sync error:", err));
-    
-    const unsubBets = onSnapshot(getCol(COLLECTIONS.BETS), (snap) => {
-      setBets(snap.docs.map(d => ({id: d.id, ...d.data()})).filter(d => d.tripId === tripId));
-    }, (err) => console.error("Bets sync error:", err));
-
-    // Messages Sync
-    const unsubMessages = onSnapshot(getCol(COLLECTIONS.MESSAGES), (snap) => {
-      const msgs = snap.docs.map(d => ({id: d.id, ...d.data()})).filter(d => d.tripId === tripId);
-      // Sort locally by timestamp string
-      msgs.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
-      setMessages(msgs);
-    }, (err) => console.error("Messages sync error:", err));
-
-    const unsubSettings = onSnapshot(doc(db, 'artifacts', validAppId, 'public', 'data', COLLECTIONS.SETTINGS, 'config'), (doc) => {
-      if (doc.exists()) {
-        setTeamNames(doc.data());
-      }
-    }, (err) => {
-       console.log("Settings sync status:", err.code);
-    });
-
-    return () => {
-      unsubPlayers();
-      unsubMatches();
-      unsubItinerary();
-      unsubExpenses();
-      unsubBets();
-      unsubMessages();
-      unsubSettings();
-    };
-  }, [user, tripId]);
-
-  // Actions
-  const validAppId = typeof appId === 'string' ? appId : 'default-app-id';
-  const getCol = (name) => collection(db, 'artifacts', validAppId, 'public', 'data', name);
-
-  const addPlayer = async (data) => await addDoc(getCol(COLLECTIONS.PLAYERS), { ...data, tripId });
-  const deletePlayer = async (id) => await deleteDoc(doc(db, 'artifacts', validAppId, 'public', 'data', COLLECTIONS.PLAYERS, id));
-  const updatePlayer = async (id, data) => await updateDoc(doc(db, 'artifacts', validAppId, 'public', 'data', COLLECTIONS.PLAYERS, id), data);
-
-  const addMatch = async (data) => await addDoc(getCol(COLLECTIONS.MATCHES), { ...data, tripId });
-  const updateMatch = async (id, data) => await updateDoc(doc(db, 'artifacts', validAppId, 'public', 'data', COLLECTIONS.MATCHES, id), data);
-  const deleteMatch = async (id) => await deleteDoc(doc(db, 'artifacts', validAppId, 'public', 'data', COLLECTIONS.MATCHES, id));
-
-  const addItinerary = async (data) => await addDoc(getCol(COLLECTIONS.ITINERARY), { ...data, tripId });
-  const deleteItinerary = async (id) => await deleteDoc(doc(db, 'artifacts', validAppId, 'public', 'data', COLLECTIONS.ITINERARY, id));
-
-  const addExpense = async (data) => await addDoc(getCol(COLLECTIONS.EXPENSES), { ...data, tripId });
-  const addBet = async (data) => await addDoc(getCol(COLLECTIONS.BETS), { ...data, tripId });
-  const deleteLedgerItem = async (colName, id) => {
-     const collectionName = colName === 'expenses' ? COLLECTIONS.EXPENSES : COLLECTIONS.BETS;
-     await deleteDoc(doc(db, 'artifacts', validAppId, 'public', 'data', collectionName, id));
+  // --- Mock Actions (Local State) ---
+  const addPlayer = (data) => {
+    setPlayers(prev => [...prev, { id: Date.now().toString(), ...data, tripId }]);
+  };
+  const deletePlayer = (id) => {
+    setPlayers(prev => prev.filter(p => p.id !== id));
+  };
+  const updatePlayer = (id, data) => {
+    setPlayers(prev => prev.map(p => p.id === id ? { ...p, ...data } : p));
   };
 
-  const addMessage = async (data) => {
-    await addDoc(getCol(COLLECTIONS.MESSAGES), { ...data, tripId });
+  const addMatch = (data) => {
+    setMatches(prev => [...prev, { id: Date.now().toString(), ...data, tripId }]);
+  };
+  const updateMatch = (id, data) => {
+    setMatches(prev => prev.map(m => m.id === id ? { ...m, ...data } : m));
+  };
+  const deleteMatch = (id) => {
+    setMatches(prev => prev.filter(m => m.id !== id));
   };
 
-  const updateTeamNames = async (names) => {
-    await setDoc(doc(db, 'artifacts', validAppId, 'public', 'data', COLLECTIONS.SETTINGS, 'config'), names, { merge: true });
+  const addItinerary = (data) => {
+    setItinerary(prev => [...prev, { id: Date.now().toString(), ...data, tripId }]);
+  };
+  const deleteItinerary = (id) => {
+    setItinerary(prev => prev.filter(i => i.id !== id));
   };
 
-  if (loading) return <div className="h-screen flex items-center justify-center bg-slate-900 text-emerald-500 font-bold">Loading Fairway Commissioner...</div>;
+  const addExpense = (data) => {
+    setExpenses(prev => [...prev, { id: Date.now().toString(), ...data, tripId }]);
+  };
+  const addBet = (data) => {
+    setBets(prev => [...prev, { id: Date.now().toString(), ...data, tripId }]);
+  };
+  const deleteLedgerItem = (colName, id) => {
+     if (colName === 'expenses') {
+       setExpenses(prev => prev.filter(e => e.id !== id));
+     } else {
+       setBets(prev => prev.filter(b => b.id !== id));
+     }
+  };
+
+  const addMessage = (data) => {
+    setMessages(prev => [...prev, { id: Date.now().toString(), ...data, tripId }]);
+  };
+
+  const updateTeamNames = (names) => {
+    setTeamNames(names);
+  };
 
   if (!user) {
-    return <AuthScreen />;
+    return <AuthScreen onLogin={handleLogin} />;
   }
 
   let currentContent;
   if (view === 'setup') {
-    currentContent = <TripSetupView setTripId={setTripId} setRole={setRole} setView={setView} user={user} isSubscribed={isSubscribed} />;
+    currentContent = <TripSetupView 
+      setTripId={setTripId} 
+      setRole={setRole} 
+      setView={setView} 
+      user={user} 
+      isSubscribed={isSubscribed} 
+      toggleSubscription={setIsSubscribed} 
+    />;
   } else if (view === 'profile') {
-    currentContent = <UserProfileView user={user} isSubscribed={isSubscribed} />;
+    currentContent = <UserProfileView 
+      user={user} 
+      isSubscribed={isSubscribed}
+      toggleSubscription={setIsSubscribed} 
+    />;
   } else if (!tripId) {
     currentContent = <RestrictedAccessView setView={setView} />;
   } else {
