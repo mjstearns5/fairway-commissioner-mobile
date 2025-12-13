@@ -1,4 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { db } from './firebase'; 
+import { collection, addDoc, getDocs } from "firebase/firestore"; 
+import { useState, useEffect } from 'react';
 import { 
   Trophy, 
   Calendar, 
@@ -1540,10 +1543,72 @@ const Dashboard = ({ players, matches, itinerary, setView, role, teamNames }) =>
     </div>
   );
 };
+{/* --- COPY THIS INTO ZONE 3 --- */}
 
+      <div style={{ margin: "20px", padding: "20px", border: "2px solid orange" }}>
+        <h3>Firebase Test Zone</h3>
+        
+        {/* The Input Form */}
+        <form onSubmit={addUser}>
+          <input 
+            type="text" 
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Enter a name"
+          />
+          <button type="submit">Add to DB</button>
+        </form>
+
+        {/* The List of Data */}
+        <ul>
+          {users.map((user) => (
+            <li key={user.id}>{user.name}</li>
+          ))}
+        </ul>
+      </div>
+
+{/* --- END OF ZONE 3 --- */}
 
 // --- Main App Container ---
 const App = () => {
+  // --- COPY THIS INTO ZONE 2 ---
+
+  // 1. State variables to hold data
+  const [name, setName] = useState("");
+  const [users, setUsers] = useState([]);
+
+  // 2. Function to add data to Firebase
+  const addUser = async (e) => {
+    e.preventDefault();  
+    try {
+        const docRef = await addDoc(collection(db, "users"), {
+          name: name,
+          createdAt: new Date()
+        });
+        console.log("Document written with ID: ", docRef.id);
+        setName(""); // Clear input
+        fetchUsers(); // Refresh list
+    } catch (e) {
+        console.error("Error adding document: ", e);
+    }
+  };
+
+  // 3. Function to fetch data from Firebase
+  const fetchUsers = async () => {
+    const querySnapshot = await getDocs(collection(db, "users"));
+    const usersList = querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+    setUsers(usersList);
+  };
+
+  // 4. Run the fetch function once when the app loads
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+
+// --- END OF ZONE 2 ---
   const [user, setUser] = useState(null);
   const [view, setView] = useState('setup'); // Default to setup
   const [role, setRole] = useState('player'); 
@@ -1671,4 +1736,6 @@ const App = () => {
   );
 };
 
-export default App;
+export default App; 
+// OR 
+export default GolfTripApp;
