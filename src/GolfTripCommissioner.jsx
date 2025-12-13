@@ -41,6 +41,8 @@ import {
   Briefcase,
   ChevronLeft
 } from 'lucide-react';
+import { db } from './firebase'; 
+import { collection, addDoc, getDocs } from "firebase/firestore";
 
 // --- Components ---
 
@@ -1544,6 +1546,38 @@ const Dashboard = ({ players, matches, itinerary, setView, role, teamNames }) =>
 
 // --- Main App Container ---
 const GolfTripCommissioner = () => {
+  // --- FIREBASE TEST LOGIC START ---
+  const [testName, setTestName] = useState("");
+  const [testUsers, setTestUsers] = useState([]);
+
+  const addTestUser = async (e) => {
+    e.preventDefault();  
+    try {
+        const docRef = await addDoc(collection(db, "users"), {
+          name: testName,
+          createdAt: new Date()
+        });
+        console.log("Document written with ID: ", docRef.id);
+        setTestName(""); 
+        fetchTestUsers(); 
+    } catch (e) {
+        console.error("Error adding document: ", e);
+    }
+  };
+
+  const fetchTestUsers = async () => {
+    const querySnapshot = await getDocs(collection(db, "users"));
+    const usersList = querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+    setTestUsers(usersList);
+  };
+
+  useEffect(() => {
+    fetchTestUsers();
+  }, []);
+  // --- FIREBASE TEST LOGIC END ---
   const [user, setUser] = useState(null);
   const [view, setView] = useState('setup'); // Default to setup
   const [role, setRole] = useState('player'); 
@@ -1655,17 +1689,38 @@ const GolfTripCommissioner = () => {
     }
   }
 
-  return (
-    <Layout 
-      view={view} 
-      setView={setView} 
-      user={user} 
-      role={role} 
+return (
+    <Layout
+      view={view}
+      setView={setView}
+      user={user}
+      role={role}
       setRole={setRole}
       tripId={tripId}
       setTripId={setTripId}
       handleLogout={handleLogout}
     >
+      {/* --- FIREBASE TEST BOX START --- */}
+      <div className="bg-orange-100 p-4 mb-4 border-4 border-orange-500 text-black z-50 relative">
+        <h3 className="font-bold">Firebase Connection Test</h3>
+        <form onSubmit={addTestUser} className="flex gap-2 my-2">
+          <input 
+            type="text" 
+            value={testName}
+            onChange={(e) => setTestName(e.target.value)}
+            placeholder="Enter name"
+            className="border p-1"
+          />
+          <button type="submit" className="bg-blue-500 text-white p-1 rounded">Save</button>
+        </form>
+        <ul>
+          {testUsers.map((user) => (
+            <li key={user.id}>Saved: {user.name}</li>
+          ))}
+        </ul>
+      </div>
+      {/* --- FIREBASE TEST BOX END --- */}
+
       {currentContent}
     </Layout>
   );
