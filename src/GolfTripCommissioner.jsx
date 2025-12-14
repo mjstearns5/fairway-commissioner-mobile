@@ -1713,27 +1713,32 @@ return (
         {/* --- FIREBASE TEST BOX START --- */}
         <div className="bg-orange-100 p-4 mb-4 border-4 border-orange-500 text-black z-50 relative">
            <h3 className="font-bold">Firebase Connection Test</h3>
-           {/* ... (Keep your existing form code here if you want, or collapse it) ... */}
+           {/* ... (Your existing input/button code) ... */}
            
-           {/* TEMPORARY LINK: So you can click to go to the payment page */}
            <div className="mt-2 border-t border-orange-300 pt-2">
               <p className="font-bold">Stripe Test:</p>
+              {/* Use Link to switch pages without logging out */}
               <Link to="/premium" className="text-blue-600 underline mr-4">Go to Subscription Page</Link>
+              <Link to="/" className="text-blue-600 underline">Back to Dashboard</Link>
            </div>
         </div>
         {/* --- FIREBASE TEST BOX END --- */}
 
-        {/* 2. Your Existing Golf App Content */}
-        {currentContent}
+        {/* --- THE SWITCHER --- */}
+        <Routes>
+          {/* Option A: If URL is "/", show the normal Golf App Dashboard */}
+          <Route path="/" element={currentContent} />
 
-        {/* 3. NEW: Stripe Routes (These only show up when the URL changes) */}
-        <div className="mt-8">
-            <Routes>
-              <Route path="/premium" element={<SubscribeButton />} />
-              <Route path="/success" element={<Success />} />
-              <Route path="/cancel" element={<Cancel />} />
-            </Routes>
-        </div>
+          {/* Option B: If URL is "/premium", show the Subscription Card */}
+          <Route path="/premium" element={
+            <div className="flex justify-center items-center h-screen bg-gray-50">
+               <SubscribeButton />
+            </div>
+          } />
+          
+          <Route path="/success" element={<Success />} />
+          <Route path="/cancel" element={<Cancel />} />
+        </Routes>
 
       </Layout>
     </Router>
