@@ -685,91 +685,98 @@ const Layout = ({ children, view, setView, user, role, setRole, tripId, setTripI
 };
 
 // 8. Trip Setup View
+// 8. Trip Setup View (Updated with Subscription Lock)
 const TripSetupView = ({ setTripId, setRole, setView, user, isSubscribed, toggleSubscription }) => {
-  const [joinCode, setJoinCode] = useState('');
-  
-  // Local helper to enable subscription state
-  const enableSubscription = () => {
-    toggleSubscription(true);
-  };
+  const [joinCode, setJoinCode] = React.useState('');
 
   const finalizeCreateTrip = () => {
+    // 1. The Gatekeeper Check
+    if (!isSubscribed) {
+        alert("Please subscribe to create a trip!");
+        return;
+    }
+    
     // Generate a random 6-char code
     const newCode = Math.random().toString(36).substring(2, 8).toUpperCase();
     
-    // In local mode, we just set state. A real app would persist this.
+    // Set state (In a real app, you'd save to Firebase here)
     setTripId(newCode);
     setRole('commissioner');
-    setView('dashboard');
   };
 
-  const finalizeJoinTrip = (code) => {
-    // In local mode, we just set state.
-    setTripId(code);
-    setRole('player');
-    setView('dashboard');
-  };
+  const handleJoinTrip = () => {
+    // 1. The Gatekeeper Check
+    if (!isSubscribed) {
+        alert("Please subscribe to join a trip!");
+        return;
+    }
 
-  const handleCreateTrip = () => {
-    // Directly create trip (removed subscription gate for local demo)
-    finalizeCreateTrip();
-  };
-
-  const handleJoinTrip = (e) => {
-    e.preventDefault();
     if (joinCode.length < 3) return;
-    const code = joinCode.toUpperCase();
-    finalizeJoinTrip(code);
+    setTripId(joinCode);
+    setRole('player'); // Default to player when joining
   };
 
   return (
-    <div className="max-w-2xl mx-auto pt-8 space-y-8">
-      <div className="text-center space-y-2">
-        <div className="inline-flex items-center justify-center w-16 h-16 bg-emerald-100 rounded-full text-emerald-600 mb-4">
-          <MapPin className="w-8 h-8" />
-        </div>
-        <h2 className="text-3xl font-bold text-slate-800">Fairway Commish</h2>
-        <p className="text-slate-500">The ultimate Ryder Cup style trip manager.</p>
-      </div>
+    <div className="space-y-8">
+       {/* LOCKED MESSAGE (Only shows if not subscribed) */}
+       {!isSubscribed && (
+         <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4">
+           <div className="flex">
+             <div className="ml-3">
+               <p className="text-sm text-red-700 font-bold">
+                 Functionality Locked
+               </p>
+               <p className="text-sm text-red-600">
+                 You must purchase a subscription above to Create or Join a trip.
+               </p>
+             </div>
+           </div>
+         </div>
+       )}
 
-      <div className="grid md:grid-cols-2 gap-6">
-        {/* Create Trip Card */}
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 hover:border-emerald-500 transition-all group cursor-pointer flex flex-col" onClick={handleCreateTrip}>
-          <div className="flex-1">
-            <div className="bg-emerald-50 w-10 h-10 rounded-lg flex items-center justify-center text-emerald-600 mb-4">
-              <Plus className="w-6 h-6" />
-            </div>
-            <h3 className="text-xl font-bold text-slate-800 mb-2">Create a Trip</h3>
-            <p className="text-slate-500 text-sm">Start a new adventure. You will be assigned as the Commissioner.</p>
+       {/* CREATE TRIP SECTION */}
+       {/* We use opacity-50 to make it look "grayed out" if not subscribed */}
+       <div className={`bg-white p-6 rounded-lg shadow-md border ${!isSubscribed ? 'opacity-50 pointer-events-none' : ''}`}>
+          <div className="flex items-center justify-between mb-4">
+             <h3 className="text-xl font-bold">Create a New Trip</h3>
+             {/* Icon placeholder if needed */}
           </div>
-          <div className="mt-6 flex items-center text-emerald-600 font-bold text-sm group-hover:translate-x-1 transition-transform">
-            Generate Code <ArrowRight className="w-4 h-4 ml-1" />
-          </div>
-        </div>
+          <p className="text-gray-600 mb-6">
+             Start a new golf trip as the Commissioner. You will get a code to share with your friends.
+          </p>
+          <button 
+            onClick={finalizeCreateTrip}
+            disabled={!isSubscribed} 
+            className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg transition disabled:bg-gray-400"
+          >
+            Create Trip
+          </button>
+       </div>
 
-        {/* Join Trip Card */}
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-          <div className="bg-blue-50 w-10 h-10 rounded-lg flex items-center justify-center text-blue-600 mb-4">
-            <Users className="w-6 h-6" />
-          </div>
-          <h3 className="text-xl font-bold text-slate-800 mb-2">Enter a Trip</h3>
-          <p className="text-slate-500 text-sm mb-4">Join an existing group using their unique trip code.</p>
-          
-          <form onSubmit={handleJoinTrip} className="flex gap-2">
+       {/* JOIN TRIP SECTION */}
+       <div className={`bg-white p-6 rounded-lg shadow-md border ${!isSubscribed ? 'opacity-50 pointer-events-none' : ''}`}>
+          <h3 className="text-xl font-bold mb-4">Join an Existing Trip</h3>
+          <p className="text-gray-600 mb-4">
+             Enter the 6-character code provided by your Commissioner.
+          </p>
+          <div className="flex gap-2">
             <input 
               type="text" 
+              placeholder="ENTER CODE"
+              className="flex-1 p-3 border border-gray-300 rounded-lg font-mono text-lg uppercase"
               value={joinCode}
               onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-              placeholder="ENTER CODE" 
-              className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-4 py-2 font-mono font-bold text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 uppercase"
-              maxLength={6}
+              disabled={!isSubscribed}
             />
-            <button disabled={!joinCode} className="bg-slate-900 text-white px-4 py-2 rounded-lg font-bold hover:bg-slate-800 disabled:opacity-50">
+            <button 
+              onClick={handleJoinTrip}
+              disabled={!isSubscribed}
+              className="px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg transition disabled:bg-gray-400"
+            >
               Join
             </button>
-          </form>
-        </div>
-      </div>
+          </div>
+       </div>
     </div>
   );
 };
@@ -1668,22 +1675,39 @@ const GolfTripCommissioner = () => {
 
   let currentContent;
   if (view === 'setup') {
-    currentContent = <TripSetupView 
-      setTripId={setTripId} 
-      setRole={setRole} 
-      setView={setView} 
-      user={user} 
-      isSubscribed={isSubscribed} 
-      toggleSubscription={setIsSubscribed} 
-    />;
-  } else if (view === 'profile') {
+  currentContent = (
+    <div className="space-y-6">
+       {/* --- NEW: Subscription Section --- */}
+       <div className="bg-white p-4 rounded-lg shadow border border-gray-200">
+          <h3 className="font-bold text-lg mb-2">Subscription Status</h3>
+          <SubscribeButton />
+       </div>
+
+       {/* --- EXISTING: Your Trip Setup Form --- */}
+       <TripSetupView
+          setTripId={setTripId}
+          setRole={setRole}
+          setView={setView}
+          user={user}
+          isSubscribed={isSubscribed}
+          toggleSubscription={setIsSubscribed}
+       />
+    </div>
+  );
+}
+   else if (view === 'profile') {
     currentContent = <UserProfileView 
       user={user} 
       isSubscribed={isSubscribed}
       toggleSubscription={setIsSubscribed} 
     />;
   } else if (!tripId) {
-    currentContent = <RestrictedAccessView setView={setView} />;
+    currentContent = (
+      <RestrictedAccessView 
+        setView={setView} 
+        isSubscribed={isSubscribed} 
+      />
+    );
   } else {
     switch(view) {
       case 'dashboard': currentContent = <Dashboard players={players} matches={matches} itinerary={itinerary} setView={setView} role={role} teamNames={teamNames} />; break;
