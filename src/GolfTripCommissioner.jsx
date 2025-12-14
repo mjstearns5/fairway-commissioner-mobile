@@ -1,6 +1,6 @@
 // 1. ALL IMPORTS GO FIRST
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'; // <--- The new library
+import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import SubscribeButton from './components/SubscribeButton';               // <--- Your new button
 
 // 2. YOUR ICON IMPORTS (Keep these)
@@ -1718,7 +1718,7 @@ return (
            {/* TEMPORARY LINK: So you can click to go to the payment page */}
            <div className="mt-2 border-t border-orange-300 pt-2">
               <p className="font-bold">Stripe Test:</p>
-              <a href="/premium" className="text-blue-600 underline mr-4">Go to Subscription Page</a>
+              <Link to="/premium" className="text-blue-600 underline mr-4">Go to Subscription Page</Link>
            </div>
         </div>
         {/* --- FIREBASE TEST BOX END --- */}
