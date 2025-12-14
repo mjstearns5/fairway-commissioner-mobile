@@ -1,6 +1,8 @@
 // 1. ALL IMPORTS GO FIRST
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
+import { db } from './firebase'; 
+import { collection, addDoc, getDocs } from "firebase/firestore";
 import SubscribeButton from './components/SubscribeButton';               // <--- Your new button
 
 // 2. YOUR ICON IMPORTS (Keep these)
@@ -49,8 +51,7 @@ import {
 // --- Place this AFTER the closing 'from lucide-react' line ---
 const Success = () => <div className="p-4 bg-green-100 text-green-800">✅ Subscription Successful!</div>;
 const Cancel = () => <div className="p-4 bg-red-100 text-red-800">❌ Subscription Cancelled.</div>;
-import { db } from './firebase'; 
-import { collection, addDoc, getDocs } from "firebase/firestore";
+
 
 // --- Components ---
 
@@ -1593,12 +1594,43 @@ const GolfTripCommissioner = () => {
     fetchTestUsers();
   }, []);
   // --- FIREBASE TEST LOGIC END ---
-  const [user, setUser] = useState(null);
+  // 1. Initialize User from Memory
+  const [user, setUser] = useState(() => {
+    const savedUser = localStorage.getItem('golfAppUser');
+    return savedUser ? JSON.parse(savedUser) : null;
+  });
+
+  // 2. Save User to Memory whenever it changes
+  useEffect(() => {
+    if (user) {
+      localStorage.setItem('golfAppUser', JSON.stringify(user));
+    } else {
+      localStorage.removeItem('golfAppUser');
+    }
+  }, [user]);
   const [view, setView] = useState('setup'); // Default to setup
   const [role, setRole] = useState('player'); 
   const [tripId, setTripId] = useState(null); // Active Trip Context
-  const [isSubscribed, setIsSubscribed] = useState(false); // New subscription state
+  // 1. Initialize from Memory (localStorage)
+  const [isSubscribed, setIsSubscribed] = useState(() => {
+    // Check if we saved it before
+    const saved = localStorage.getItem('golfAppSubscribed');
+    return saved === 'true';
+  });
 
+  // 2. Save to Memory whenever it changes
+  useEffect(() => {
+    localStorage.setItem('golfAppSubscribed', isSubscribed);
+  }, [isSubscribed]);
+// 3. Check if returning from Stripe Success
+  useEffect(() => {
+    // If the URL is "/success", unlock the app
+    if (window.location.pathname === '/success') {
+      setIsSubscribed(true);
+      // Optional: Clean up the URL so it doesn't say "/success" forever
+      window.history.replaceState(null, '', '/'); 
+    }
+  }, []);
   // Data States
   const [players, setPlayers] = useState([]);
   const [matches, setMatches] = useState([]);

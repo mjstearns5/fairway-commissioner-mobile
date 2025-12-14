@@ -7,7 +7,8 @@ const cors = require('cors');
 const app = express();
 app.use(express.json());
 // Allow requests from your React App (assuming it runs on port 3000 or 5173)
-app.use(cors({ origin: 'http://localhost:3000' })); 
+// Allow ANY website to talk to this server (Easiest for testing)
+app.use(cors());
 
 app.post('/create-checkout-session', async (req, res) => {
   try {
@@ -21,8 +22,9 @@ app.post('/create-checkout-session', async (req, res) => {
         },
       ],
       // URLs to redirect to after success or cancel
-      success_url: 'http://localhost:3000/success',
-      cancel_url: 'http://localhost:3000/cancel',
+      // Update the port to match what your browser says (3001)
+    success_url: 'http://localhost:3001/success',
+    cancel_url: 'http://localhost:3001/cancel',
     });
 
     res.json({ url: session.url });
