@@ -1,3 +1,10 @@
+// --- ZONE A: Add these lines at the very top ---
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import SubscribeButton from './components/SubscribeButton'; 
+
+// (Optional: You can define these simple pages right here after the imports)
+const Success = () => <h1>Success!</h1>;
+const Cancel = () => <h1>Cancelled</h1>;
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   Trophy, 
@@ -1690,39 +1697,45 @@ const GolfTripCommissioner = () => {
   }
 
 return (
-    <Layout
-      view={view}
-      setView={setView}
-      user={user}
-      role={role}
-      setRole={setRole}
-      tripId={tripId}
-      setTripId={setTripId}
-      handleLogout={handleLogout}
-    >
-      {/* --- FIREBASE TEST BOX START --- */}
-      <div className="bg-orange-100 p-4 mb-4 border-4 border-orange-500 text-black z-50 relative">
-        <h3 className="font-bold">Firebase Connection Test</h3>
-        <form onSubmit={addTestUser} className="flex gap-2 my-2">
-          <input 
-            type="text" 
-            value={testName}
-            onChange={(e) => setTestName(e.target.value)}
-            placeholder="Enter name"
-            className="border p-1"
-          />
-          <button type="submit" className="bg-blue-500 text-white p-1 rounded">Save</button>
-        </form>
-        <ul>
-          {testUsers.map((user) => (
-            <li key={user.id}>Saved: {user.name}</li>
-          ))}
-        </ul>
-      </div>
-      {/* --- FIREBASE TEST BOX END --- */}
+    // 1. Wrap everything in Router so URLs work
+    <Router>
+      <Layout
+        view={view}
+        setView={setView}
+        user={user}
+        role={role}
+        setRole={setRole}
+        tripId={tripId}
+        setTripId={setTripId}
+        handleLogout={handleLogout}
+      >
+        {/* --- FIREBASE TEST BOX START --- */}
+        <div className="bg-orange-100 p-4 mb-4 border-4 border-orange-500 text-black z-50 relative">
+           <h3 className="font-bold">Firebase Connection Test</h3>
+           {/* ... (Keep your existing form code here if you want, or collapse it) ... */}
+           
+           {/* TEMPORARY LINK: So you can click to go to the payment page */}
+           <div className="mt-2 border-t border-orange-300 pt-2">
+              <p className="font-bold">Stripe Test:</p>
+              <a href="/premium" className="text-blue-600 underline mr-4">Go to Subscription Page</a>
+           </div>
+        </div>
+        {/* --- FIREBASE TEST BOX END --- */}
 
-      {currentContent}
-    </Layout>
+        {/* 2. Your Existing Golf App Content */}
+        {currentContent}
+
+        {/* 3. NEW: Stripe Routes (These only show up when the URL changes) */}
+        <div className="mt-8">
+            <Routes>
+              <Route path="/premium" element={<SubscribeButton />} />
+              <Route path="/success" element={<Success />} />
+              <Route path="/cancel" element={<Cancel />} />
+            </Routes>
+        </div>
+
+      </Layout>
+    </Router>
   );
 };
 
