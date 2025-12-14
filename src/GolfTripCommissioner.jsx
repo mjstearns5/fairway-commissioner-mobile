@@ -1,11 +1,9 @@
-// --- ZONE A: Add these lines at the very top ---
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import SubscribeButton from './components/SubscribeButton'; 
-
-// (Optional: You can define these simple pages right here after the imports)
-const Success = () => <h1>Success!</h1>;
-const Cancel = () => <h1>Cancelled</h1>;
+// 1. ALL IMPORTS GO FIRST
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'; // <--- The new library
+import SubscribeButton from './components/SubscribeButton';               // <--- Your new button
+
+// 2. YOUR ICON IMPORTS (Keep these)
 import { 
   Trophy, 
   Calendar, 
@@ -48,6 +46,9 @@ import {
   Briefcase,
   ChevronLeft
 } from 'lucide-react';
+// --- Place this AFTER the closing 'from lucide-react' line ---
+const Success = () => <div className="p-4 bg-green-100 text-green-800">✅ Subscription Successful!</div>;
+const Cancel = () => <div className="p-4 bg-red-100 text-red-800">❌ Subscription Cancelled.</div>;
 import { db } from './firebase'; 
 import { collection, addDoc, getDocs } from "firebase/firestore";
 
