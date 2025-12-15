@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import { db } from './firebase'; 
-import { collection, addDoc, getDocs, doc, setDoc } from "firebase/firestore";
+import { collection, addDoc, getDocs, doc, setDoc, query, where } from "firebase/firestore";
 import SubscribeButton from './components/SubscribeButton';               // <--- Your new button
 import { auth } from './firebase';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "firebase/auth";
@@ -1663,6 +1663,38 @@ const GolfTripCommissioner = () => {
   const [bets, setBets] = useState([]);
   const [teamNames, setTeamNames] = useState({ red: 'Red Team', blue: 'Blue Team' });
   const [messages, setMessages] = useState([]); // Added state for messages
+  // --- NEW: Fetch Players from Firestore ---
+  const fetchPlayers = async () => {
+    if (!tripId) return; // Don't fetch if we don't have a trip code yet
+
+    try {
+      // 1. Create a "Query" (A question for the database)
+      const q = query(
+        collection(db, "players"), 
+        where("tripId", "==", tripId)
+      );
+
+      // 2. Ask the question
+      const querySnapshot = await getDocs(q);
+
+      // 3. Unpack the answers
+      const playersList = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+
+      // 4. Update the App Screen
+      setPlayers(playersList);
+      
+    } catch (error) {
+      console.error("Error fetching players:", error);
+    }
+  };
+
+  // --- NEW: Run this automatically when the Trip ID changes ---
+  useEffect(() => {
+    fetchPlayers();
+  }, [tripId]);
 
   const handleLogin = (mockUser) => {
     setUser(mockUser);
@@ -1676,8 +1708,26 @@ const GolfTripCommissioner = () => {
   };
 
   // --- Mock Actions (Local State) ---
-  const addPlayer = (data) => {
-    setPlayers(prev => [...prev, { id: Date.now().toString(), ...data, tripId }]);
+  const addPlayer = async (data) => {
+    if (!tripId) { alert("Please create or join a trip first!"); return; }
+
+    try {
+      await addDoc(collection(db, "players"), {
+        tripId: tripId,
+        ...data,
+        score: 0,
+        createdAt: new Date()
+      });
+      
+      console.log("Player saved!");
+      alert("Player Added Successfully!");
+      
+      fetchPlayers(); // <--- ADD THIS LINE (Reloads the list instantly)
+
+    } catch (error) {
+      console.error("Error adding player:", error);
+      alert("Error saving: " + error.message);
+    }
   };
   const deletePlayer = (id) => {
     setPlayers(prev => prev.filter(p => p.id !== id));
