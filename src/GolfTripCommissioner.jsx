@@ -2,8 +2,10 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import { db } from './firebase'; 
-import { collection, addDoc, getDocs } from "firebase/firestore";
+import { collection, addDoc, getDocs, doc, setDoc } from "firebase/firestore";
 import SubscribeButton from './components/SubscribeButton';               // <--- Your new button
+import { auth } from './firebase';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "firebase/auth";
 
 // 2. YOUR ICON IMPORTS (Keep these)
 import { 
@@ -65,11 +67,30 @@ const AuthScreen = ({ onLogin }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-    // Simulate API call
-    setTimeout(() => {
-      onLogin({ uid: 'mock-user-123', email: email });
-      setLoading(false);
-    }, 800);
+    try {
+      // 1. Try to Log In existing user
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      onLogin(userCredential.user);
+    } catch (error) {
+      // 2. If Log In fails, Create New Account
+      try {
+        const newUser = await createUserWithEmailAndPassword(auth, email, password);
+        
+        // --- NEW STEP: Save User to Firestore Database ---
+        await setDoc(doc(db, "users", newUser.user.uid), {
+          email: email,
+          createdAt: new Date(),
+          role: "commissioner" // Default role
+        });
+        // ------------------------------------------------
+        
+        onLogin(newUser.user);
+      } catch (createError) {
+        console.error("Error logging in or signing up:", createError);
+        alert(createError.message);
+      }
+    }
+    setLoading(false);
   };
 
   return (
