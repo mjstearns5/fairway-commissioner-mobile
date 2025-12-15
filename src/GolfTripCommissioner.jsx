@@ -712,7 +712,7 @@ const TripSetupView = ({ setTripId, setRole, setView, user, isSubscribed, toggle
   const [joinCode, setJoinCode] = React.useState('');
 
   const finalizeCreateTrip = async () => {
-    // 1. The Gatekeeper Check (Keep this!)
+    // 1. The Gatekeeper Check
     if (!isSubscribed) {
       alert("Please subscribe to create a trip!");
       return;
@@ -722,9 +722,7 @@ const TripSetupView = ({ setTripId, setRole, setView, user, isSubscribed, toggle
     const newCode = Math.random().toString(36).substring(2, 8).toUpperCase();
 
     try {
-      // 3. Save to Firebase (The Cloud)
-      // Note: We use 'user.uid' here. If 'user' isn't available in this specific view, 
-      // you might need to pass it as a prop or use 'auth.currentUser.uid'
+      // 3. Save to Firebase
       await addDoc(collection(db, "trips"), {
         code: newCode,
         commissionerId: user?.uid || auth.currentUser?.uid, 
@@ -733,12 +731,13 @@ const TripSetupView = ({ setTripId, setRole, setView, user, isSubscribed, toggle
         status: "active"
       });
 
-      // 4. Update App State (The Screen)
+      // 4. Update Screen
       setTripId(newCode);
       setRole('commissioner');
 
-      // 5. Save to Local Storage (The Browser Memory - CRITICAL STEP)
+      // 5. Save to Memory (Both ID and Role)
       localStorage.setItem("activeTripId", newCode); 
+      localStorage.setItem("userRole", "commissioner"); // <--- The Important New Line
 
       alert(`Trip Created! Code: ${newCode}`);
 
@@ -749,20 +748,21 @@ const TripSetupView = ({ setTripId, setRole, setView, user, isSubscribed, toggle
   };
 
   const handleJoinTrip = () => {
-    // 1. The Gatekeeper Check
-    if (!isSubscribed) {
-      alert("Please subscribe to join a trip!");
-      return;
-    }
-
+    // 1. Checks
+    if (!isSubscribed) { alert("Please subscribe!"); return; }
     if (joinCode.length < 3) return;
 
-    // 2. Update App State (The Screen)
+    // 2. Update Screen
     setTripId(joinCode);
     setRole('player'); 
 
-    // 3. Save to Local Storage (The Memory - THIS IS THE FIX)
+    // 3. FORCE UPDATE MEMORY (The Fix)
+    // We do this manually here to ensure it happens instantly
     localStorage.setItem("activeTripId", joinCode);
+    localStorage.setItem("userRole", "player"); // <--- Explicitly saves "player"
+    
+    // 4. Debugging (Optional: Check your console to see if this prints)
+    console.log("Joined trip. Role forced to: PLAYER");
   };
 
   return (
@@ -1671,17 +1671,48 @@ const GolfTripCommissioner = () => {
     localStorage.setItem('golfAppSubscribed', isSubscribed);
   }, [isSubscribed]);
 // 3. Check if returning from Stripe Success
+  // 3. Check if returning from Stripe Success
   useEffect(() => {
     // If we are on the success page...
     if (window.location.pathname === '/success') {
       // 1. Mark as paid
       setIsSubscribed(true);
-      localStorage.setItem('golfAppSubscribed', 'true'); // Double-save just in case
-      
-      // 2. FORCE a return to the dashboard (This fixes the blank tabs)
-      window.location.href = '/'; 
+      localStorage.setItem('golfAppSubscribed', 'true'); 
+
+      // 2. FORCE a return to the dashboard
+      window.location.href = '/';
     }
   }, []);
+
+  // 4. Restore Trip Context & Role on Refresh
+  useEffect(() => {
+    const savedTripId = localStorage.getItem("activeTripId");
+    const savedRole = localStorage.getItem("userRole"); 
+    
+    if (savedTripId) {
+      setTripId(savedTripId);
+      
+      // Restore Role if found, otherwise default to player
+      if (savedRole) {
+        setRole(savedRole);
+      } else {
+        setRole('player');
+      }
+    }
+  }, []);
+
+  // --- DELETE THIS BLOCK ---
+  // --- 5. AUTO-SAVE: Whenever Role or TripId changes, save to memory ---
+  useEffect(() => {
+    if (tripId) {
+      localStorage.setItem("activeTripId", tripId);
+    }
+    
+    if (role) {
+      localStorage.setItem("userRole", role);
+    }
+  }, [tripId, role]); 
+  // -------------------------
   // Data States
   const [players, setPlayers] = useState([]);
   const [matches, setMatches] = useState([]);
