@@ -1645,11 +1645,14 @@ const GolfTripCommissioner = () => {
   }, [isSubscribed]);
 // 3. Check if returning from Stripe Success
   useEffect(() => {
-    // If the URL is "/success", unlock the app
+    // If we are on the success page...
     if (window.location.pathname === '/success') {
+      // 1. Mark as paid
       setIsSubscribed(true);
-      // Optional: Clean up the URL so it doesn't say "/success" forever
-      window.history.replaceState(null, '', '/'); 
+      localStorage.setItem('golfAppSubscribed', 'true'); // Double-save just in case
+      
+      // 2. FORCE a return to the dashboard (This fixes the blank tabs)
+      window.location.href = '/'; 
     }
   }, []);
   // Data States
@@ -1728,26 +1731,28 @@ const GolfTripCommissioner = () => {
 
   let currentContent;
   if (view === 'setup') {
-  currentContent = (
-    <div className="space-y-6">
-       {/* --- NEW: Subscription Section --- */}
-       <div className="bg-white p-4 rounded-lg shadow border border-gray-200">
-          <h3 className="font-bold text-lg mb-2">Subscription Status</h3>
-          <SubscribeButton />
-       </div>
+    currentContent = (
+      <div className="space-y-6">
+         {/* NEW: Only show this box if NOT subscribed */}
+         {!isSubscribed && (
+           <div className="bg-white p-4 rounded-lg shadow border border-gray-200">
+              <h3 className="font-bold text-lg mb-2">Subscription Status</h3>
+              <SubscribeButton />
+           </div>
+         )}
 
-       {/* --- EXISTING: Your Trip Setup Form --- */}
-       <TripSetupView
-          setTripId={setTripId}
-          setRole={setRole}
-          setView={setView}
-          user={user}
-          isSubscribed={isSubscribed}
-          toggleSubscription={setIsSubscribed}
-       />
-    </div>
-  );
-}
+         {/* EXISTING: Trip Setup Form */}
+         <TripSetupView
+            setTripId={setTripId}
+            setRole={setRole}
+            setView={setView}
+            user={user}
+            isSubscribed={isSubscribed}
+            toggleSubscription={setIsSubscribed}
+         />
+      </div>
+    );
+  }
    else if (view === 'profile') {
     currentContent = <UserProfileView 
       user={user} 
