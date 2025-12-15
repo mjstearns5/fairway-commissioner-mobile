@@ -1792,19 +1792,6 @@ return (
         setTripId={setTripId}
         handleLogout={handleLogout}
       >
-        {/* --- FIREBASE TEST BOX START --- */}
-        <div className="bg-orange-100 p-4 mb-4 border-4 border-orange-500 text-black z-50 relative">
-           <h3 className="font-bold">Firebase Connection Test</h3>
-           {/* ... (Your existing input/button code) ... */}
-           
-           <div className="mt-2 border-t border-orange-300 pt-2">
-              <p className="font-bold">Stripe Test:</p>
-              {/* Use Link to switch pages without logging out */}
-              <Link to="/premium" className="text-blue-600 underline mr-4">Go to Subscription Page</Link>
-              <Link to="/" className="text-blue-600 underline">Back to Dashboard</Link>
-           </div>
-        </div>
-        {/* --- FIREBASE TEST BOX END --- */}
 
         {/* --- THE SWITCHER --- */}
         <Routes>
