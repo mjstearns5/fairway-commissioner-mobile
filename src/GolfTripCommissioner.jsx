@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import { db } from './firebase'; 
-import { collection, addDoc, getDocs, doc, setDoc, query, where } from "firebase/firestore";
+import { collection, addDoc, getDocs, doc, setDoc, query, where, updateDoc } from "firebase/firestore";
 import SubscribeButton from './components/SubscribeButton';               // <--- Your new button
 import { auth } from './firebase';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "firebase/auth";
@@ -711,31 +711,58 @@ const Layout = ({ children, view, setView, user, role, setRole, tripId, setTripI
 const TripSetupView = ({ setTripId, setRole, setView, user, isSubscribed, toggleSubscription }) => {
   const [joinCode, setJoinCode] = React.useState('');
 
-  const finalizeCreateTrip = () => {
-    // 1. The Gatekeeper Check
+  const finalizeCreateTrip = async () => {
+    // 1. The Gatekeeper Check (Keep this!)
     if (!isSubscribed) {
-        alert("Please subscribe to create a trip!");
-        return;
+      alert("Please subscribe to create a trip!");
+      return;
     }
-    
-    // Generate a random 6-char code
+
+    // 2. Generate Code
     const newCode = Math.random().toString(36).substring(2, 8).toUpperCase();
-    
-    // Set state (In a real app, you'd save to Firebase here)
-    setTripId(newCode);
-    setRole('commissioner');
+
+    try {
+      // 3. Save to Firebase (The Cloud)
+      // Note: We use 'user.uid' here. If 'user' isn't available in this specific view, 
+      // you might need to pass it as a prop or use 'auth.currentUser.uid'
+      await addDoc(collection(db, "trips"), {
+        code: newCode,
+        commissionerId: user?.uid || auth.currentUser?.uid, 
+        name: "My Golf Trip",
+        createdAt: new Date(),
+        status: "active"
+      });
+
+      // 4. Update App State (The Screen)
+      setTripId(newCode);
+      setRole('commissioner');
+
+      // 5. Save to Local Storage (The Browser Memory - CRITICAL STEP)
+      localStorage.setItem("activeTripId", newCode); 
+
+      alert(`Trip Created! Code: ${newCode}`);
+
+    } catch (error) {
+      console.error("Error creating trip:", error);
+      alert("Error saving: " + error.message);
+    }
   };
 
   const handleJoinTrip = () => {
     // 1. The Gatekeeper Check
     if (!isSubscribed) {
-        alert("Please subscribe to join a trip!");
-        return;
+      alert("Please subscribe to join a trip!");
+      return;
     }
 
     if (joinCode.length < 3) return;
+
+    // 2. Update App State (The Screen)
     setTripId(joinCode);
-    setRole('player'); // Default to player when joining
+    setRole('player'); 
+
+    // 3. Save to Local Storage (The Memory - THIS IS THE FIX)
+    localStorage.setItem("activeTripId", joinCode);
   };
 
   return (
@@ -1690,6 +1717,16 @@ const GolfTripCommissioner = () => {
       console.error("Error fetching players:", error);
     }
   };
+  // --- NEW: Restore Trip on Refresh ---
+  useEffect(() => {
+    // Check browser memory
+    const savedTripId = localStorage.getItem("activeTripId");
+    
+    if (savedTripId) {
+      setTripId(savedTripId); // Restore the ID
+      setRole('commissioner'); // (Optional: You might want to fetch the real role later)
+    }
+  }, []); // Empty brackets means "Run once when app loads"
 
   // --- NEW: Run this automatically when the Trip ID changes ---
   useEffect(() => {
@@ -1732,8 +1769,19 @@ const GolfTripCommissioner = () => {
   const deletePlayer = (id) => {
     setPlayers(prev => prev.filter(p => p.id !== id));
   };
-  const updatePlayer = (id, data) => {
+  const updatePlayer = async (id, data) => {
+    // 1. Update the Screen immediately (so it feels fast)
     setPlayers(prev => prev.map(p => p.id === id ? { ...p, ...data } : p));
+
+    try {
+      // 2. Update Firebase in the background
+      const playerRef = doc(db, "players", id);
+      await updateDoc(playerRef, data);
+      console.log("Player updated in database!");
+    } catch (error) {
+      console.error("Error updating player:", error);
+      alert("Could not save change: " + error.message);
+    }
   };
 
   const addMatch = (data) => {
