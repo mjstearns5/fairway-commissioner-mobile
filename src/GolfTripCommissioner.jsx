@@ -668,11 +668,7 @@ const Layout = ({ children, view, setView, user, role, setRole, tripId, setTripI
                     </button>
                   </div>
                 </div>
-                {/* Role Switcher (Debug/Demo Purposes) */}
-                <div className="mt-4 bg-slate-800 p-1 rounded-lg flex text-[10px] font-bold">
-                   <button onClick={() => setRole('commissioner')} className={`flex-1 py-1 rounded ${role === 'commissioner' ? 'bg-emerald-600 text-white' : 'text-slate-400'}`}>Commish</button>
-                   <button onClick={() => setRole('player')} className={`flex-1 py-1 rounded ${role === 'player' ? 'bg-blue-600 text-white' : 'text-slate-400'}`}>Player</button>
-                </div>
+                
               </div>
             ) : (
               <div className="bg-slate-100 rounded-xl p-4 text-center">
@@ -752,17 +748,13 @@ const TripSetupView = ({ setTripId, setRole, setView, user, isSubscribed, toggle
     if (!isSubscribed) { alert("Please subscribe!"); return; }
     if (joinCode.length < 3) return;
 
-    // 2. Update Screen
+    // 2. Update Screen -> EVERYONE IS COMMISSIONER
     setTripId(joinCode);
-    setRole('player'); 
+    setRole('commissioner'); // <--- CHANGE THIS (Was 'player')
 
-    // 3. FORCE UPDATE MEMORY (The Fix)
-    // We do this manually here to ensure it happens instantly
+    // 3. Save to Memory -> EVERYONE IS COMMISSIONER
     localStorage.setItem("activeTripId", joinCode);
-    localStorage.setItem("userRole", "player"); // <--- Explicitly saves "player"
-    
-    // 4. Debugging (Optional: Check your console to see if this prints)
-    console.log("Joined trip. Role forced to: PLAYER");
+    localStorage.setItem("userRole", "commissioner"); // <--- CHANGE THIS (Was 'player')
   };
 
   return (
@@ -1684,20 +1676,16 @@ const GolfTripCommissioner = () => {
     }
   }, []);
 
-  // 4. Restore Trip Context & Role on Refresh
+  // 4. Restore Trip Context (AND FORCE COMMISSIONER MODE)
   useEffect(() => {
     const savedTripId = localStorage.getItem("activeTripId");
-    const savedRole = localStorage.getItem("userRole"); 
     
     if (savedTripId) {
       setTripId(savedTripId);
+      setRole('commissioner'); // <--- Always set to Commissioner
       
-      // Restore Role if found, otherwise default to player
-      if (savedRole) {
-        setRole(savedRole);
-      } else {
-        setRole('player');
-      }
+      // Optional: Ensure memory matches strictly
+      localStorage.setItem("userRole", "commissioner");
     }
   }, []);
 
