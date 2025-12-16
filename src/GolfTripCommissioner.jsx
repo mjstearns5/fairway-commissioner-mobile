@@ -1751,7 +1751,30 @@ const GolfTripCommissioner = () => {
   useEffect(() => {
     fetchPlayers();
   }, [tripId]);
+// ... (Line 1753) }, [tripId]);
 
+// --- PASTE STEP 1 HERE (Line 1754) ---
+useEffect(() => {
+  const fetchTripDetails = async () => {
+    if (!tripId) return;
+    try {
+      const q = query(collection(db, "trips"), where("code", "==", tripId));
+      const querySnapshot = await getDocs(q);
+      if (!querySnapshot.empty) {
+        const tripData = querySnapshot.docs[0].data();
+        if (tripData.teamNames) {
+          setTeamNames(tripData.teamNames);
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching trip details:", error);
+    }
+  };
+  fetchTripDetails();
+}, [tripId]);
+// --- END PASTE ---
+
+// (Line 1755) const handleLogin = ...
   const handleLogin = (mockUser) => {
     setUser(mockUser);
   };
@@ -1838,8 +1861,44 @@ const GolfTripCommissioner = () => {
     setMessages(prev => [...prev, { id: Date.now().toString(), ...data, tripId }]);
   };
 
-  const updateTeamNames = (names) => {
-    setTeamNames(names);
+  const updateTeamNames = async (arg1, arg2) => {
+    // 1. Handle both data formats (Object vs Separate Arguments)
+    let newNames = {};
+    if (typeof arg1 === 'object') {
+      newNames = arg1; // It came as an object { red: '...', blue: '...' }
+    } else {
+      newNames = { red: arg1, blue: arg2 }; // It came as two separate strings
+    }
+
+    // 2. Update Screen Immediately
+    console.log("Attempting to save names:", newNames);
+    setTeamNames(newNames);
+
+    try {
+      if (!tripId) {
+        console.error("No Trip ID found! Cannot save.");
+        return;
+      }
+
+      // 3. Find the Trip in Database
+      const q = query(collection(db, "trips"), where("code", "==", tripId));
+      const querySnapshot = await getDocs(q);
+
+      if (!querySnapshot.empty) {
+        const tripDoc = querySnapshot.docs[0];
+        
+        // 4. Save to Firestore
+        await updateDoc(doc(db, "trips", tripDoc.id), {
+          teamNames: newNames
+        });
+        console.log("SUCCESS: Team names saved to Firestore for trip", tripId);
+      } else {
+        console.warn("ERROR: Could not find a trip in database with code:", tripId);
+      }
+    } catch (error) {
+      console.error("Error saving team names:", error);
+      alert("Save Failed: " + error.message);
+    }
   };
 
   if (!user) {
