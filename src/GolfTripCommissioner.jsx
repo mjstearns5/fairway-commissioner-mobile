@@ -2,7 +2,10 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import { db } from './firebase'; 
-import { collection, addDoc, getDocs, doc, setDoc, query, where, updateDoc } from "firebase/firestore";
+import { 
+  collection, addDoc, getDocs, doc, updateDoc, query, where, setDoc,
+  onSnapshot, orderBy, serverTimestamp // <--- ADD THESE 3
+} from "firebase/firestore";
 import SubscribeButton from './components/SubscribeButton';               // <--- Your new button
 import { auth } from './firebase';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "firebase/auth";
@@ -1773,7 +1776,29 @@ useEffect(() => {
   fetchTripDetails();
 }, [tripId]);
 // --- END PASTE ---
+// --- NEW: Real-Time Chat Listener ---
+  useEffect(() => {
+    if (!tripId) return;
 
+    // 1. Listen for messages for THIS trip, ordered by time
+    const q = query(
+      collection(db, "messages"),
+      where("tripId", "==", tripId),
+      orderBy("createdAt", "asc")
+    );
+
+    // 2. Turn on the "Radio" (Real-time connection)
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const liveMessages = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setMessages(liveMessages);
+    });
+
+    // 3. Turn off radio when leaving
+    return () => unsubscribe();
+  }, [tripId]);
 // (Line 1755) const handleLogin = ...
   const handleLogin = (mockUser) => {
     setUser(mockUser);
@@ -1857,8 +1882,28 @@ useEffect(() => {
      }
   };
 
-  const addMessage = (data) => {
-    setMessages(prev => [...prev, { id: Date.now().toString(), ...data, tripId }]);
+  const addMessage = async (msgData) => {
+    // 1. Extract the text (Handles the way your button sends data)
+    // If the button sends an object { text: "hello" }, we grab the text.
+    // If it sends just "hello", we use it directly.
+    const textToCheck = typeof msgData === 'object' ? msgData.text : msgData;
+    
+    // 2. Safety Check
+    if (!textToCheck || !textToCheck.trim()) return;
+
+    try {
+      // 3. Send to Firebase
+      await addDoc(collection(db, "messages"), {
+        text: textToCheck,
+        tripId: tripId,
+        createdAt: serverTimestamp(),
+        sender: user?.email || "Commissioner", 
+        senderId: user?.uid
+      });
+      console.log("Message sent to cloud!");
+    } catch (error) {
+      console.error("Error sending message:", error);
+    }
   };
 
   const updateTeamNames = async (arg1, arg2) => {
