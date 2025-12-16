@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import { db } from './firebase'; 
 import { 
-  collection, addDoc, getDocs, doc, updateDoc, query, where, setDoc,
+  collection, addDoc, getDocs, doc, updateDoc, query, where, setDoc, deleteDoc, 
   onSnapshot, orderBy, serverTimestamp // <--- ADD THESE 3
 } from "firebase/firestore";
 import SubscribeButton from './components/SubscribeButton';               // <--- Your new button
@@ -1799,6 +1799,27 @@ useEffect(() => {
     // 3. Turn off radio when leaving
     return () => unsubscribe();
   }, [tripId]);
+  // --- NEW: Real-Time Matches Listener ---
+  useEffect(() => {
+    if (!tripId) return;
+
+    // 1. Watch for matches for this trip
+    const q = query(
+      collection(db, "matches"),
+      where("tripId", "==", tripId)
+    );
+
+    // 2. Update screen whenever database changes
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const liveMatches = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setMatches(liveMatches);
+    });
+
+    return () => unsubscribe();
+  }, [tripId]);
 // (Line 1755) const handleLogin = ...
   const handleLogin = (mockUser) => {
     setUser(mockUser);
@@ -1851,14 +1872,51 @@ useEffect(() => {
     }
   };
 
-  const addMatch = (data) => {
-    setMatches(prev => [...prev, { id: Date.now().toString(), ...data, tripId }]);
+  // --- FIREBASE MATCH FUNCTIONS ---
+
+  // 1. Add a New Match
+  const addMatch = async (matchData) => {
+    try {
+      await addDoc(collection(db, "matches"), {
+        ...matchData, // Contains: type, players, day, etc.
+        tripId: tripId,
+        createdAt: new Date(),
+        winner: null, // Default to no winner yet
+        status: 'scheduled'
+      });
+      console.log("Match added to Firestore!");
+    } catch (error) {
+      console.error("Error adding match:", error);
+      alert("Could not save match: " + error.message);
+    }
   };
-  const updateMatch = (id, data) => {
-    setMatches(prev => prev.map(m => m.id === id ? { ...m, ...data } : m));
+
+  // 2. Update Score / Winner (The "Red/Blue/Halved" buttons)
+  const updateMatch = async (id, updatedData) => {
+    // Update screen instantly so it feels fast
+    setMatches(prev => prev.map(m => m.id === id ? { ...m, ...updatedData } : m));
+
+    try {
+      const matchRef = doc(db, "matches", id);
+      await updateDoc(matchRef, updatedData);
+      console.log("Match updated in Firestore!");
+    } catch (error) {
+      console.error("Error updating match:", error);
+    }
   };
-  const deleteMatch = (id) => {
+
+  // 3. Delete a Match (The Trash Can)
+  const deleteMatch = async (id) => {
+    // Remove from screen instantly
     setMatches(prev => prev.filter(m => m.id !== id));
+
+    try {
+      await deleteDoc(doc(db, "matches", id));
+      console.log("Match deleted from Firestore!");
+    } catch (error) {
+      console.error("Error deleting match:", error);
+      alert("Could not delete match: " + error.message);
+    }
   };
 
   const addItinerary = (data) => {
