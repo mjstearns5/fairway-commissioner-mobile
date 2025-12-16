@@ -1820,6 +1820,52 @@ useEffect(() => {
 
     return () => unsubscribe();
   }, [tripId]);
+  // --- NEW: Real-Time Itinerary Listener ---
+  useEffect(() => {
+    if (!tripId) return;
+
+    // 1. Get events for this trip
+    const q = query(
+      collection(db, "itinerary"),
+      where("tripId", "==", tripId)
+    );
+
+    // 2. Update screen when data changes
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const liveEvents = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      
+      // Optional: Sort them by date/time
+      liveEvents.sort((a, b) => new Date(a.date) - new Date(b.date));
+      
+      setItinerary(liveEvents);
+    });
+
+    return () => unsubscribe();
+  }, [tripId]);
+  // --- NEW: Real-Time Ledger Listeners ---
+  
+  // 1. Listen for Expenses
+  useEffect(() => {
+    if (!tripId) return;
+    const q = query(collection(db, "expenses"), where("tripId", "==", tripId));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      setExpenses(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+    return () => unsubscribe();
+  }, [tripId]);
+
+  // 2. Listen for Bets
+  useEffect(() => {
+    if (!tripId) return;
+    const q = query(collection(db, "bets"), where("tripId", "==", tripId));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      setBets(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+    return () => unsubscribe();
+  }, [tripId]);
 // (Line 1755) const handleLogin = ...
   const handleLogin = (mockUser) => {
     setUser(mockUser);
@@ -1919,25 +1965,80 @@ useEffect(() => {
     }
   };
 
-  const addItinerary = (data) => {
-    setItinerary(prev => [...prev, { id: Date.now().toString(), ...data, tripId }]);
-  };
-  const deleteItinerary = (id) => {
-    setItinerary(prev => prev.filter(i => i.id !== id));
+  // --- FIREBASE ITINERARY FUNCTIONS ---
+
+  const addItinerary = async (newEvent) => {
+    try {
+      await addDoc(collection(db, "itinerary"), {
+        ...newEvent, 
+        tripId: tripId,
+        createdAt: new Date()
+      });
+      console.log("Event added to Firestore!");
+    } catch (error) {
+      console.error("Error adding event:", error);
+      alert("Could not save event: " + error.message);
+    }
   };
 
-  const addExpense = (data) => {
-    setExpenses(prev => [...prev, { id: Date.now().toString(), ...data, tripId }]);
+  const deleteItinerary = async (id) => {
+    // Remove from screen instantly
+    setItinerary(prev => prev.filter(item => item.id !== id));
+
+    try {
+      await deleteDoc(doc(db, "itinerary", id));
+      console.log("Event deleted from Firestore!");
+    } catch (error) {
+      console.error("Error deleting event:", error);
+    }
   };
-  const addBet = (data) => {
-    setBets(prev => [...prev, { id: Date.now().toString(), ...data, tripId }]);
+  // --- FIREBASE LEDGER FUNCTIONS ---
+
+  const addExpense = async (expenseData) => {
+    try {
+      await addDoc(collection(db, "expenses"), {
+        ...expenseData,
+        tripId: tripId,
+        createdAt: new Date()
+      });
+      console.log("Expense saved!");
+    } catch (error) {
+      console.error("Error adding expense:", error);
+    }
   };
-  const deleteLedgerItem = (colName, id) => {
-     if (colName === 'expenses') {
-       setExpenses(prev => prev.filter(e => e.id !== id));
-     } else {
-       setBets(prev => prev.filter(b => b.id !== id));
-     }
+
+  const addBet = async (betData) => {
+    try {
+      await addDoc(collection(db, "bets"), {
+        ...betData,
+        tripId: tripId,
+        createdAt: new Date()
+      });
+      console.log("Bet saved!");
+    } catch (error) {
+      console.error("Error adding bet:", error);
+    }
+  };
+
+  const deleteLedgerItem = async (collectionName, id) => {
+    // 1. Determine which list to update locally (for speed)
+    if (collectionName === 'expenses') {
+      setExpenses(prev => prev.filter(e => e.id !== id));
+    } else {
+      setBets(prev => prev.filter(b => b.id !== id));
+    }
+
+    // 2. Delete from the correct collection in Firestore
+    try {
+      // Note: collectionName usually comes in as 'expenses' or 'bets'
+      // If your button sends 'wagers', we map it to 'bets' here if needed.
+      const targetCollection = collectionName === 'wagers' ? 'bets' : collectionName;
+      
+      await deleteDoc(doc(db, targetCollection, id));
+      console.log("Item deleted from", targetCollection);
+    } catch (error) {
+      console.error("Error deleting item:", error);
+    }
   };
 
   const addMessage = async (msgData) => {
