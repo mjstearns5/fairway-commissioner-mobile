@@ -381,7 +381,7 @@ const MessagesView = ({ messages, addMessage, user }) => {
             type="text" 
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
-            className="flex-1 p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none transition-all text-sm"
+            className="flex-1 border border-gray-300 rounded-lg p-3 focus:outline-none focus:border-emerald-500 text-slate-900" 
             placeholder="Type a message..."
           />
           <button 
@@ -756,12 +756,12 @@ const TripSetupView = ({ setTripId, setRole, setView, user, isSubscribed, toggle
 
        {/* CREATE TRIP SECTION */}
        {/* We use opacity-50 to make it look "grayed out" if not subscribed */}
-       <div className={`bg-white p-6 rounded-lg shadow-md border ${!isSubscribed ? 'opacity-50 pointer-events-none' : ''}`}>
+       <div className={`p-8 rounded-xl shadow-lg mb-6 bg-gradient-to-r from-blue-800 to-slate-900 border border-blue-700 text-white ${!isSubscribed ? 'opacity-50 pointer-events-none' : ''}`}>
           <div className="flex items-center justify-between mb-4">
              <h3 className="text-xl font-bold">Create a New Trip</h3>
              {/* Icon placeholder if needed */}
           </div>
-          <p className="text-gray-600 mb-6">
+          <p className="text-white">
              Start a new golf trip as the Commissioner. You will get a code to share with your friends.
           </p>
           <button 
@@ -774,16 +774,16 @@ const TripSetupView = ({ setTripId, setRole, setView, user, isSubscribed, toggle
        </div>
 
        {/* JOIN TRIP SECTION */}
-       <div className={`bg-white p-6 rounded-lg shadow-md border ${!isSubscribed ? 'opacity-50 pointer-events-none' : ''}`}>
+       <div className={`p-8 rounded-xl shadow-lg bg-gradient-to-r from-emerald-800 to-slate-900 border border-emerald-700 text-white ${!isSubscribed ? 'opacity-50 pointer-events-none' : ''}`}>
           <h3 className="text-xl font-bold mb-4">Join an Existing Trip</h3>
-          <p className="text-gray-600 mb-4">
+          <p className="text-emerald-100 mb-4">
              Enter the 6-character code provided by your Commissioner.
           </p>
           <div className="flex gap-2">
             <input 
               type="text" 
               placeholder="ENTER CODE"
-              className="flex-1 p-3 border border-gray-300 rounded-lg font-mono text-lg uppercase"
+              className="flex-1 p-3 border border-gray-300 rounded-lg font-mono text-lg uppercase text-slate-900 bg-white"
               value={joinCode}
               onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
               disabled={!isSubscribed}
@@ -851,7 +851,7 @@ const RosterView = ({ players, addPlayer, deletePlayer, updatePlayer, role, team
                 type="text" 
                 value={newName} 
                 onChange={(e) => setNewName(e.target.value)} 
-                className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-emerald-500 outline-none" 
+                className="w-full p-2 border border-gray-300 rounded text-slate-900"
                 placeholder="e.g. Tiger Woods"
               />
             </div>
@@ -861,7 +861,7 @@ const RosterView = ({ players, addPlayer, deletePlayer, updatePlayer, role, team
                 type="number" 
                 value={newHcp} 
                 onChange={(e) => setNewHcp(e.target.value)} 
-                className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-emerald-500 outline-none" 
+                className="w-full p-2 border border-gray-300 rounded text-slate-900"
                 placeholder="0.0"
                 step="0.1"
               />
@@ -1168,7 +1168,7 @@ const LogisticsView = ({ itinerary, addItinerary, deleteItinerary, role }) => {
             <select 
               value={form.type} 
               onChange={e => setForm({...form, type: e.target.value})}
-              className="p-2 border rounded"
+              className="... border-gray-300 rounded p-2 w-full text-slate-900"
             >
               <option>Golf</option>
               <option>Flight</option>
@@ -1180,7 +1180,7 @@ const LogisticsView = ({ itinerary, addItinerary, deleteItinerary, role }) => {
               type="datetime-local" 
               value={form.time}
               onChange={e => setForm({...form, time: e.target.value})}
-              className="p-2 border rounded"
+              className="... border-gray-300 rounded p-2 w-full text-slate-900"
               required
             />
             <input 
@@ -1188,7 +1188,7 @@ const LogisticsView = ({ itinerary, addItinerary, deleteItinerary, role }) => {
               placeholder="Event Title"
               value={form.title}
               onChange={e => setForm({...form, title: e.target.value})}
-              className="p-2 border rounded"
+              className="... border-gray-300 rounded p-2 w-full text-slate-900"
               required
             />
             <input 
@@ -1196,7 +1196,7 @@ const LogisticsView = ({ itinerary, addItinerary, deleteItinerary, role }) => {
               placeholder="Location/Notes"
               value={form.location}
               onChange={e => setForm({...form, location: e.target.value})}
-              className="p-2 border rounded"
+              className="... border-gray-300 rounded p-2 w-full text-slate-900"
             />
             <button className="md:col-span-4 bg-slate-800 text-white p-2 rounded hover:bg-slate-700 font-medium">Add to Itinerary</button>
           </form>
@@ -1381,7 +1381,7 @@ const LedgerView = ({ players, expenses, bets, addExpense, addBet, deleteItem, r
                 <label className="text-xs font-bold text-slate-400 uppercase mb-2 block">Log Shared Cost</label>
                 <form onSubmit={handleExpenseSubmit} className="space-y-2">
                   <select 
-                    className="w-full p-2 text-sm border rounded"
+                    className="w-full p-2 text-sm border rounded text-slate-900"
                     value={expenseForm.payerId}
                     onChange={e => setExpenseForm({...expenseForm, payerId: e.target.value})}
                   >
@@ -1389,9 +1389,9 @@ const LedgerView = ({ players, expenses, bets, addExpense, addBet, deleteItem, r
                     {players.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                   </select>
                   <div className="flex gap-2">
-                    <input type="number" placeholder="Amount" className="w-1/3 p-2 text-sm border rounded" 
+                    <input type="number" placeholder="Amount" className="w-1/3 p-2 text-sm border rounded text-slate-900"
                       value={expenseForm.amount} onChange={e => setExpenseForm({...expenseForm, amount: e.target.value})} />
-                    <input type="text" placeholder="Description (e.g. Dinner)" className="w-2/3 p-2 text-sm border rounded"
+                    <input type="text" placeholder="Description (e.g. Dinner)" className="w-2/3 p-2 text-sm border rounded text-slate-900"
                       value={expenseForm.description} onChange={e => setExpenseForm({...expenseForm, description: e.target.value})} />
                   </div>
                   <button className="w-full bg-emerald-600 text-white text-sm py-2 rounded hover:bg-emerald-700">Add Shared Expense</button>
@@ -1405,19 +1405,19 @@ const LedgerView = ({ players, expenses, bets, addExpense, addBet, deleteItem, r
                 <label className="text-xs font-bold text-slate-400 uppercase mb-2 block">Log Wager</label>
                 <form onSubmit={handleBetSubmit} className="space-y-2">
                   <div className="flex gap-2">
-                     <select className="w-1/2 p-2 text-sm border rounded" value={betForm.winnerId} onChange={e => setBetForm({...betForm, winnerId: e.target.value})}>
+                     <select className="w-1/2 p-2 text-sm border rounded text-slate-900" value={betForm.winnerId} onChange={e => setBetForm({...betForm, winnerId: e.target.value})}>
                         <option value="">Winner</option>
                         {players.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                      </select>
-                     <select className="w-1/2 p-2 text-sm border rounded" value={betForm.loserId} onChange={e => setBetForm({...betForm, loserId: e.target.value})}>
+                     <select className="w-1/2 p-2 text-sm border rounded text-slate-900" value={betForm.loserId} onChange={e => setBetForm({...betForm, loserId: e.target.value})}>
                         <option value="">Loser</option>
                         {players.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                      </select>
                   </div>
                   <div className="flex gap-2">
-                    <input type="number" placeholder="Amount" className="w-1/3 p-2 text-sm border rounded"
+                    <input type="number" placeholder="Amount" className="w-1/3 p-2 text-sm border rounded text-slate-900"
                       value={betForm.amount} onChange={e => setBetForm({...betForm, amount: e.target.value})} />
-                    <input type="text" placeholder="Bet Details" className="w-2/3 p-2 text-sm border rounded"
+                    <input type="text" placeholder="Bet Details" className="w-2/3 p-2 text-sm border rounded text-slate-900"
                       value={betForm.description} onChange={e => setBetForm({...betForm, description: e.target.value})} />
                   </div>
                   <button className="w-full bg-slate-800 text-white text-sm py-2 rounded hover:bg-slate-700">Record Wager</button>
