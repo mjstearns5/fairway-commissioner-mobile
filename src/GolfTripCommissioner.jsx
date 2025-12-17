@@ -51,7 +51,7 @@ import {
   MessageSquare, 
   Send,
   Briefcase,
-  ChevronLeft
+  ChevronLeft,
 } from 'lucide-react';
 // --- Place this AFTER the closing 'from lucide-react' line ---
 const Success = () => <div className="p-4 bg-green-100 text-green-800">✅ Subscription Successful!</div>;
@@ -484,7 +484,7 @@ const ManageTripView = () => {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-slate-800">Manage the Trip</h2>
+        <h2 className="text-2xl font-bold text-white">Manage the Trip</h2>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -535,9 +535,9 @@ const Layout = ({ children, view, setView, user, role, setRole, tripId, setTripI
   const navItems = [
     { id: 'setup', label: 'Trip Setup', icon: MapPin },
     { id: 'dashboard', label: 'Dashboard', icon: Activity },
-    { id: 'messages', label: 'Messages', icon: MessageSquare }, 
+    { id: 'messages', label: 'Messages', icon: MessageSquare },
     { id: 'tournament', label: 'Tournament', icon: Trophy },
-    { id: 'manage', label: 'Manage Trip', icon: Briefcase }, // Combined Tab
+    { id: 'manage', label: 'Manage Trip', icon: Briefcase },
     { id: 'logistics', label: 'Logistics', icon: Calendar },
     { id: 'finance', label: 'The Ledger', icon: DollarSign },
     { id: 'players', label: 'Roster', icon: Users },
@@ -546,161 +546,137 @@ const Layout = ({ children, view, setView, user, role, setRole, tripId, setTripI
   const handleExitTrip = () => {
     setTripId(null);
     setView('setup');
-    setRole('player'); // Reset role on exit
+    setRole('player');
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-800 font-sans">
-      {/* Mobile Header */}
-      <div className="bg-emerald-800 text-white p-4 shadow-md sticky top-0 z-50">
+    <div className="flex flex-col h-screen bg-slate-900 text-slate-100 font-sans overflow-hidden">
+      
+      {/* 1. TOP HEADER */}
+      <div className="bg-emerald-800 text-white p-4 shadow-md shrink-0 z-50">
         <div className="flex justify-between items-center">
+          
+          {/* Logo */}
           <div className="flex items-center gap-2">
             <Flag className="w-6 h-6 text-yellow-400 fill-current" />
             <h1 className="text-xl font-bold tracking-tight">Fairway Commish</h1>
           </div>
-          
-          <div className="flex items-center gap-4">
-            {/* Desktop User Info & Profile Icon */}
-            <div className="hidden md:flex items-center gap-4">
-               <div className="text-right">
-                  <div className="text-[10px] text-emerald-300 uppercase font-bold tracking-wider">Signed In As</div>
-                  <div className="text-xs font-bold text-white">{user?.email || 'Guest Commissioner'}</div>
-               </div>
-               
-               <button 
-                 onClick={() => setView('profile')}
-                 className={`p-2 rounded-full transition-colors ${view === 'profile' ? 'bg-emerald-900 text-white shadow-inner' : 'text-emerald-100 hover:bg-emerald-700 hover:text-white'}`}
-                 title="My Profile"
-               >
-                 <UserCircle className="w-6 h-6" />
-               </button>
 
-               <button onClick={handleLogout} className="text-emerald-100 hover:text-white text-sm font-medium flex items-center gap-1 ml-2 border-l border-emerald-700 pl-4">
-                 <LogOut className="w-4 h-4" /> Sign Out
-               </button>
+          {/* Right Side Actions */}
+          <div className="flex items-center gap-4">
+            
+            {/* Desktop User Info & Controls */}
+            <div className="hidden md:flex items-center gap-4">
+              <div className="text-right">
+                <div className="text-[10px] text-emerald-300 uppercase font-bold tracking-wider">Signed In As</div>
+                <div className="text-xs font-bold text-white">{user?.email || 'Guest Commissioner'}</div>
+              </div>
+              
+              <button
+                onClick={() => setView('profile')}
+                className={`p-2 rounded-full transition-colors ${
+                  view === 'profile' 
+                    ? 'bg-emerald-900 text-white shadow-inner' 
+                    : 'text-emerald-100 hover:bg-emerald-700'
+                }`}
+                title="My Profile"
+              >
+                <UserCircle className="w-6 h-6" />
+              </button>
+
+              {/* RESTORED: Sign Out Button */}
+              <button 
+                onClick={handleLogout} 
+                className="ml-2 pl-4 border-l border-emerald-600 text-emerald-100 hover:text-white text-sm font-medium flex items-center gap-1 transition-colors"
+              >
+                <LogOut className="w-4 h-4" /> 
+                <span>Sign Out</span>
+              </button>
             </div>
 
-            <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="md:hidden text-emerald-100 hover:text-white">
-              {isMenuOpen ? <X /> : <Menu />}
+            {/* Mobile Menu Toggle */}
+            <button 
+              onClick={() => setIsMenuOpen(!isMenuOpen)} 
+              className="md:hidden text-emerald-100 hover:text-white"
+            >
+              {isMenuOpen ? <div className="font-bold text-xl">X</div> : <Menu className="w-6 h-6" />} 
             </button>
           </div>
         </div>
       </div>
 
-      {/* Mobile Menu */}
-      {isMenuOpen && (
-        <div className="md:hidden bg-emerald-900 text-white p-4 space-y-2 fixed w-full z-40 shadow-xl border-t border-emerald-800 overflow-y-auto max-h-[calc(100vh-80px)]">
-           {/* Mobile User Info */}
-           <div className="bg-emerald-950/30 p-3 rounded-lg mb-4 flex justify-between items-center">
-              <div className="flex items-center gap-3">
-                 <div onClick={() => { setView('profile'); setIsMenuOpen(false); }} className="bg-emerald-800 p-2 rounded-full cursor-pointer">
-                    <UserCircle className="w-5 h-5 text-emerald-100" />
-                 </div>
-                 <div className="text-xs text-emerald-200 truncate max-w-[150px]">{user?.email || 'Guest Commissioner'}</div>
-              </div>
-              <button onClick={handleLogout} className="text-xs font-bold bg-emerald-800 px-2 py-1 rounded">Sign Out</button>
-           </div>
+      {/* 2. MAIN BODY (Sidebar + Content) */}
+      <div className="flex flex-1 overflow-hidden">
+        
+        {/* SIDEBAR (Desktop) */}
+        <aside className="hidden md:flex flex-col w-64 bg-slate-900 border-r border-slate-800 overflow-y-auto">
+          
+          {/* Trip Code Widget */}
+          {tripId && (
+            <div className="p-4 mx-4 mt-6 mb-2 rounded-lg bg-slate-950 border border-slate-800">
+               <div className="flex justify-between items-center mb-1">
+                  <span className="text-[10px] text-slate-500 uppercase font-bold">Trip Code</span>
+               </div>
+               <div className="text-xl font-mono text-emerald-400 tracking-widest">{tripId}</div>
+               <button onClick={handleExitTrip} className="text-[10px] text-red-400 hover:text-red-300 mt-2 flex items-center gap-1">
+                 Exit Trip
+               </button>
+            </div>
+          )}
 
-           {/* Trip Code Display (Mobile) */}
-           {tripId && (
-             <div className="bg-emerald-800 p-3 rounded-lg mb-4 flex justify-between items-center">
-                <div>
-                  <div className="text-xs text-emerald-300 uppercase font-bold">Current Trip</div>
-                  <div className="font-mono font-bold text-lg tracking-wider">{tripId}</div>
-                </div>
-                <button onClick={handleExitTrip} className="bg-emerald-900/50 p-2 rounded text-emerald-200">
-                  <LogOut className="w-4 h-4" />
-                </button>
-             </div>
-           )}
-
-           {/* Mobile Role Switcher */}
-           {tripId && (
-             <div className="bg-emerald-800 p-3 rounded-lg mb-4 flex gap-2">
-                <button 
-                  onClick={() => setRole('commissioner')}
-                  className={`flex-1 py-1 text-xs font-bold rounded ${role === 'commissioner' ? 'bg-yellow-400 text-emerald-900' : 'text-emerald-200'}`}
-                >
-                  Commissioner
-                </button>
-                <button 
-                  onClick={() => setRole('player')}
-                  className={`flex-1 py-1 text-xs font-bold rounded ${role === 'player' ? 'bg-white text-emerald-900' : 'text-emerald-200'}`}
-                >
-                  Player
-                </button>
-             </div>
-           )}
-
-          {navItems.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => { setView(item.id); setIsMenuOpen(false); }}
-              className={`flex items-center gap-3 w-full p-3 rounded-lg ${view === item.id ? 'bg-emerald-700' : 'hover:bg-emerald-800'}`}
-            >
-              <item.icon className="w-5 h-5" />
-              <span className="font-medium">{item.label}</span>
-            </button>
-          ))}
-        </div>
-      )}
-
-      <div className="flex max-w-6xl mx-auto">
-        {/* Desktop Sidebar */}
-        <div className="hidden md:block w-64 bg-white min-h-[calc(100vh-64px)] shadow-lg border-r border-slate-200 p-4 sticky top-16 h-fit">
-          <div className="space-y-6">
-            
-            {/* Trip Context Card */}
-            {tripId ? (
-              <div className="bg-slate-900 rounded-xl p-4 text-white relative overflow-hidden group">
-                <div className="relative z-10">
-                  <div className="text-xs text-slate-400 font-bold uppercase mb-1">Trip Code</div>
-                  <div className="text-2xl font-mono font-bold text-emerald-400 tracking-wider flex items-center gap-2">
-                    {tripId}
-                    <Copy 
-                      className="w-4 h-4 text-slate-500 cursor-pointer hover:text-white" 
-                      onClick={() => navigator.clipboard.writeText(tripId)}
-                    />
-                  </div>
-                  <div className="mt-3 pt-3 border-t border-slate-800 flex justify-between items-center">
-                    <span className="text-xs text-slate-400">
-                      {role === 'commissioner' ? 'Admin Mode' : 'View Mode'}
-                    </span>
-                    <button onClick={handleExitTrip} className="text-xs text-red-400 hover:text-red-300 font-bold flex items-center gap-1">
-                      Exit <LogOut className="w-3 h-3" />
-                    </button>
-                  </div>
-                </div>
-                
-              </div>
-            ) : (
-              <div className="bg-slate-100 rounded-xl p-4 text-center">
-                <MapPin className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                <p className="text-sm text-slate-500 font-medium">No Active Trip</p>
-              </div>
-            )}
-
-            <div className="space-y-2">
-              <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2 px-3">Menu</div>
-              {navItems.map((item) => (
+          {/* Navigation Items */}
+          <nav className="flex-1 px-2 py-4 space-y-1">
+            <p className="px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Menu</p>
+            {navItems.map((item) => {
+              const Icon = item.icon;
+              const isActive = view === item.id;
+              return (
                 <button
                   key={item.id}
                   onClick={() => setView(item.id)}
-                  className={`flex items-center gap-3 w-full p-3 rounded-lg transition-all ${view === item.id ? 'bg-emerald-50 text-emerald-700 font-semibold shadow-sm border border-emerald-100' : 'text-slate-600 hover:bg-slate-50'}`}
+                  className={`flex items-center w-full px-4 py-3 text-sm font-medium rounded-lg transition-all duration-200 group ${
+                    isActive
+                      ? 'bg-slate-800 text-emerald-400 border-l-4 border-emerald-500' 
+                      : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
+                  }`}
                 >
-                  <item.icon className="w-5 h-5" />
-                  <span>{item.label}</span>
+                  <Icon className={`w-5 h-5 mr-3 ${isActive ? 'text-emerald-400' : 'text-slate-500 group-hover:text-slate-300'}`} />
+                  {item.label}
                 </button>
-              ))}
-            </div>
-          </div>
-        </div>
+              );
+            })}
+          </nav>
+        </aside>
 
-        {/* Main Content */}
-        <main className="flex-1 p-4 md:p-8 overflow-x-hidden">
-          {children}
+        {/* MAIN CONTENT AREA */}
+        <main className="flex-1 overflow-y-auto p-4 md:p-8 bg-slate-900 relative">
+           <div className="max-w-5xl mx-auto">
+             {children}
+           </div>
         </main>
+
       </div>
+
+      {/* MOBILE MENU OVERLAY */}
+      {isMenuOpen && (
+        <div className="md:hidden absolute inset-0 top-16 bg-slate-900 z-40 p-4">
+           {navItems.map((item) => (
+             <button
+               key={item.id}
+               onClick={() => { setView(item.id); setIsMenuOpen(false); }}
+               className="flex items-center w-full p-4 text-slate-200 border-b border-slate-800"
+             >
+               <item.icon className="w-5 h-5 mr-3" />
+               {item.label}
+             </button>
+           ))}
+           <div className="mt-8 pt-4 border-t border-slate-800">
+             <button onClick={handleLogout} className="flex items-center text-red-400 w-full p-4">
+                <LogOut className="w-5 h-5 mr-3" /> Sign Out
+             </button>
+           </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -852,7 +828,7 @@ const RosterView = ({ players, addPlayer, deletePlayer, updatePlayer, role, team
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-slate-800">Trip Roster</h2>
+        <h2 className="text-2xl font-bold text-white">Trip Roster</h2>
         <div className="flex gap-2">
            {role === 'commissioner' && (
              <button 
@@ -1182,7 +1158,7 @@ const LogisticsView = ({ itinerary, addItinerary, deleteItinerary, role }) => {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-slate-800">Trip Itinerary</h2>
+        <h2 className="text-2xl font-bold text-white">Trip Itinerary</h2>
       </div>
 
       {role === 'commissioner' && (
@@ -1351,7 +1327,7 @@ const LedgerView = ({ players, expenses, bets, addExpense, addBet, deleteItem, r
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
-        <h2 className="text-2xl font-bold text-slate-800">The Ledger</h2>
+        <h2 className="text-2xl font-bold text-white">The Ledger</h2>
         <div className="flex gap-2 text-sm bg-slate-100 p-1 rounded-lg w-fit">
           <button onClick={() => setView('summary')} className={`px-4 py-1.5 rounded-md ${view === 'summary' ? 'bg-white shadow text-slate-800 font-medium' : 'text-slate-500'}`}>Net Settlement</button>
           <button onClick={() => setView('log')} className={`px-4 py-1.5 rounded-md ${view === 'log' ? 'bg-white shadow text-slate-800 font-medium' : 'text-slate-500'}`}>Transaction Log</button>
@@ -1660,7 +1636,24 @@ const GolfTripCommissioner = () => {
     const saved = localStorage.getItem('golfAppSubscribed');
     return saved === 'true';
   });
-
+// CLEANUP: Automatically reset app state AND Local Storage when user logs out
+  useEffect(() => {
+    if (!user) {
+      console.log("User logged out. Clearing trip data...");
+      
+      // 1. Reset State Variables
+      setTripId(null);
+      setRole('player');
+      setView('setup');
+      
+      // 2. Wipe Local Storage (The Critical Fix)
+      // We remove common keys to ensure the old trip doesn't come back
+      localStorage.removeItem('tripId'); 
+      localStorage.removeItem('activeTripId');
+      localStorage.removeItem('golfAppTripId'); // Based on your naming convention
+      localStorage.removeItem('userRole'); // <--- ADD THIS LINE
+    }
+  }, [user]);
   // 2. Save to Memory whenever it changes
   useEffect(() => {
     localStorage.setItem('golfAppSubscribed', isSubscribed);
@@ -1679,18 +1672,24 @@ const GolfTripCommissioner = () => {
     }
   }, []);
 
-  // 4. Restore Trip Context (AND FORCE COMMISSIONER MODE)
+  // 4. Restore Trip Context (SAFER VERSION)
   useEffect(() => {
-    const savedTripId = localStorage.getItem("activeTripId");
-    
-    if (savedTripId) {
-      setTripId(savedTripId);
-      setRole('commissioner'); // <--- Always set to Commissioner
+    // Only try to restore if we have a user logged in
+    if (user) {
+      const savedTripId = localStorage.getItem("activeTripId");
       
-      // Optional: Ensure memory matches strictly
-      localStorage.setItem("userRole", "commissioner");
+      // Ensure we don't restore "null" or "undefined" text strings
+      if (savedTripId && savedTripId !== "null" && savedTripId !== "undefined") {
+        setTripId(savedTripId);
+        
+        // Only set role if we confirm we have a trip
+        const savedRole = localStorage.getItem("userRole");
+        if (savedRole) {
+           setRole(savedRole);
+        }
+      }
     }
-  }, []);
+  }, [user]); // Only run this when the user is confirmed
 
   // --- DELETE THIS BLOCK ---
   // --- 5. AUTO-SAVE: Whenever Role or TripId changes, save to memory ---
