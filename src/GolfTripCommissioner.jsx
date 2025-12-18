@@ -1651,17 +1651,40 @@ const GolfTripCommissioner = () => {
     }
   }, [user]);
   // (Existing code from your screenshot)
-  useEffect(() => {
-    if (user) {
-      localStorage.setItem('golfAppUser', JSON.stringify(user));
-    } else {
-      localStorage.removeItem('golfAppUser');
-    }
-  }, [user]); // <--- PASTE RIGHT AFTER THIS CLOSING SET
+  // --- RESTORED STATE VARIABLES ---
+  const [view, setView] = useState('setup');
+  const [role, setRole] = useState('player');
+  const [tripId, setTripId] = useState(null);
 
-  // --- NEW CODE: SYNC SUBSCRIPTION WITH DATABASE ---
+  // Initialize Subscription from Memory
+  const [isSubscribed, setIsSubscribed] = useState(() => {
+    const saved = localStorage.getItem('golfAppSubscribed');
+    return saved === 'true';
+  });
+
+  // --- STEP 1: SAVE TRIP & ROLE TO DATABASE (Cloud Memory) ---
   useEffect(() => {
-    const checkDatabaseForSubscription = async () => {
+    const saveContextToCloud = async () => {
+      // Only save if we have a valid user and a trip
+      if (user && tripId) {
+        try {
+          const userRef = doc(db, "users", user.uid);
+          // Save the ID and Role so we can restore them later
+          await setDoc(userRef, { 
+            lastActiveTripId: tripId, 
+            lastRole: role 
+          }, { merge: true });
+        } catch (error) {
+          console.error("Error saving trip context:", error);
+        }
+      }
+    };
+    saveContextToCloud();
+  }, [user, tripId, role]); 
+
+  // --- STEP 2: UPGRADED SYNC PROFILE (Subscription + Last Trip) ---
+  useEffect(() => {
+    const syncUserProfile = async () => {
       if (user) {
         try {
           const userRef = doc(db, "users", user.uid);
@@ -1669,28 +1692,33 @@ const GolfTripCommissioner = () => {
 
           if (userSnap.exists()) {
             const userData = userSnap.data();
+            
+            // 1. Restore Subscription
             if (userData.isSubscribed) {
-              console.log("Database confirmed: User is Premium");
               setIsSubscribed(true);
               localStorage.setItem('golfAppSubscribed', 'true');
             }
+
+            // 2. Restore Last Trip (The Fix for your issue)
+            if (userData.lastActiveTripId) {
+              console.log("Restoring trip from cloud:", userData.lastActiveTripId);
+              setTripId(userData.lastActiveTripId);
+              localStorage.setItem('activeTripId', userData.lastActiveTripId);
+              
+              // Restore Role if it exists
+              if (userData.lastRole) {
+                setRole(userData.lastRole);
+                localStorage.setItem('userRole', userData.lastRole);
+              }
+            }
           }
         } catch (error) {
-          console.error("Error syncing subscription:", error);
+          console.error("Error syncing profile:", error);
         }
       }
     };
-    checkDatabaseForSubscription();
+    syncUserProfile();
   }, [user]);
-  const [view, setView] = useState('setup'); // Default to setup
-  const [role, setRole] = useState('player'); 
-  const [tripId, setTripId] = useState(null); // Active Trip Context
-  // 1. Initialize from Memory (localStorage)
-  const [isSubscribed, setIsSubscribed] = useState(() => {
-    // Check if we saved it before
-    const saved = localStorage.getItem('golfAppSubscribed');
-    return saved === 'true';
-  });
 // CLEANUP: Automatically reset app state AND Local Storage when user logs out
   useEffect(() => {
     if (!user) {
