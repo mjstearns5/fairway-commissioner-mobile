@@ -3,8 +3,8 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import { db } from './firebase'; 
 import { 
-  collection, addDoc, getDocs, doc, updateDoc, query, where, setDoc, deleteDoc, 
-  onSnapshot, orderBy, serverTimestamp // <--- ADD THESE 3
+  collection, addDoc, getDocs, getDoc, doc, updateDoc, query, where, setDoc, deleteDoc, 
+  onSnapshot, orderBy, serverTimestamp 
 } from "firebase/firestore";
 import SubscribeButton from './components/SubscribeButton';               // <--- Your new button
 import { auth } from './firebase';
@@ -66,36 +66,54 @@ const AuthScreen = ({ onLogin }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-    try {
-      // 1. Try to Log In existing user
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      onLogin(userCredential.user);
-    } catch (error) {
-      // 2. If Log In fails, Create New Account
+    setError(''); // Clear old errors
       try {
+      if (isLogin) {
+        // --- LOGGING IN ---
+        const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        onLogin(userCredential.user);
+      } else {
+        // --- SIGNING UP ---
         const newUser = await createUserWithEmailAndPassword(auth, email, password);
         
-        // --- NEW STEP: Save User to Firestore Database ---
+        // Create the user profile in Firestore
         await setDoc(doc(db, "users", newUser.user.uid), {
           email: email,
           createdAt: new Date(),
           role: "commissioner" // Default role
         });
-        // ------------------------------------------------
         
         onLogin(newUser.user);
-      } catch (createError) {
-        console.error("Error logging in or signing up:", createError);
-        alert(createError.message);
       }
-    }
+      }  
+     catch (err) {
+      console.error("Auth Error:", err.code);
+      // specific error messages for the user
+      switch (err.code) {
+        case 'auth/invalid-credential':
+        case 'auth/wrong-password':
+          setError("Incorrect password or email.");
+          break;
+        case 'auth/user-not-found':
+          setError("No account found with this email.");
+          break;
+        case 'auth/email-already-in-use':
+          setError("This email is already taken. Try logging in.");
+          break;
+        case 'auth/weak-password':
+          setError("Password must be at least 6 characters.");
+          break;
+        default:
+          setError("Login failed. Please check your info.");
+      } // 1. Closes the 'switch'
+    } // 2. Closes the 'catch'
     setLoading(false);
-  };
-
+  }; // 3. Closes the 'handleSubmit' function
   return (
     <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4 font-sans">
       <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden flex flex-col">
@@ -140,7 +158,12 @@ const AuthScreen = ({ onLogin }) => {
                 />
               </div>
             </div>
-
+            {/* ERROR MESSAGE DISPLAY */}
+{error && (
+  <div className="bg-red-500/10 border border-red-500 text-red-500 p-3 rounded-lg mb-4 text-sm text-center font-bold">
+    {error}
+  </div>
+)}
             <button 
               type="submit" 
               disabled={loading}
@@ -1627,6 +1650,38 @@ const GolfTripCommissioner = () => {
       localStorage.removeItem('golfAppUser');
     }
   }, [user]);
+  // (Existing code from your screenshot)
+  useEffect(() => {
+    if (user) {
+      localStorage.setItem('golfAppUser', JSON.stringify(user));
+    } else {
+      localStorage.removeItem('golfAppUser');
+    }
+  }, [user]); // <--- PASTE RIGHT AFTER THIS CLOSING SET
+
+  // --- NEW CODE: SYNC SUBSCRIPTION WITH DATABASE ---
+  useEffect(() => {
+    const checkDatabaseForSubscription = async () => {
+      if (user) {
+        try {
+          const userRef = doc(db, "users", user.uid);
+          const userSnap = await getDoc(userRef);
+
+          if (userSnap.exists()) {
+            const userData = userSnap.data();
+            if (userData.isSubscribed) {
+              console.log("Database confirmed: User is Premium");
+              setIsSubscribed(true);
+              localStorage.setItem('golfAppSubscribed', 'true');
+            }
+          }
+        } catch (error) {
+          console.error("Error syncing subscription:", error);
+        }
+      }
+    };
+    checkDatabaseForSubscription();
+  }, [user]);
   const [view, setView] = useState('setup'); // Default to setup
   const [role, setRole] = useState('player'); 
   const [tripId, setTripId] = useState(null); // Active Trip Context
@@ -1659,18 +1714,38 @@ const GolfTripCommissioner = () => {
     localStorage.setItem('golfAppSubscribed', isSubscribed);
   }, [isSubscribed]);
 // 3. Check if returning from Stripe Success
-  // 3. Check if returning from Stripe Success
+  // 3. Check if returning from Stripe Success (AND SAVE TO DB)
   useEffect(() => {
-    // If we are on the success page...
-    if (window.location.pathname === '/success') {
-      // 1. Mark as paid
-      setIsSubscribed(true);
-      localStorage.setItem('golfAppSubscribed', 'true'); 
+    const handleStripeSuccess = async () => {
+      // Only run if we are on the success page
+      if (window.location.pathname === '/success') {
+        
+        // A. Update Local State (Immediate Feedback)
+        setIsSubscribed(true);
+        localStorage.setItem('golfAppSubscribed', 'true');
 
-      // 2. FORCE a return to the dashboard
-      window.location.href = '/';
+        // B. Update Firebase Database (Permanent Record)
+        if (user) {
+          try {
+            const userRef = doc(db, "users", user.uid);
+            // using merge: true ensures we don't delete other user info
+            await setDoc(userRef, { isSubscribed: true }, { merge: true });
+            console.log("Stripe payment saved to database!");
+          } catch (error) {
+            console.error("Error saving Stripe payment:", error);
+          }
+        }
+
+        // C. Clean the URL so they aren't stuck on /success
+        window.history.replaceState(null, "", "/"); 
+      }
+    };
+    
+    // We add a tiny check to wait for 'user' to be ready
+    if (user || window.location.pathname === '/success') {
+      handleStripeSuccess();
     }
-  }, []);
+  }, [user]); // Re-runs when user loads
 
   // 4. Restore Trip Context (SAFER VERSION)
   useEffect(() => {
@@ -2103,7 +2178,23 @@ useEffect(() => {
       alert("Save Failed: " + error.message);
     }
   };
-
+// --- HANDLE PAYMENT SUCCESS ---
+  const handleSubscriptionSuccess = async () => {
+    // 1. Update App State immediately so user sees results
+    setIsSubscribed(true);
+    localStorage.setItem('golfAppSubscribed', 'true');
+    
+    // 2. Save to Firebase Database (Permanent)
+    if (user) {
+      try {
+        const userRef = doc(db, "users", user.uid);
+        await setDoc(userRef, { isSubscribed: true }, { merge: true });
+        console.log("Subscription saved to database!");
+      } catch (error) {
+        console.error("Error saving subscription:", error);
+      }
+    }
+  };
   if (!user) {
     return <AuthScreen onLogin={handleLogin} />;
   }
@@ -2114,9 +2205,12 @@ useEffect(() => {
       <div className="space-y-6">
          {/* NEW: Only show this box if NOT subscribed */}
          {!isSubscribed && (
-           <div className="bg-white p-4 rounded-lg shadow border border-gray-200">
-              <h3 className="font-bold text-lg mb-2">Subscription Status</h3>
-              <SubscribeButton />
+           <div className="bg-slate-800 p-4 rounded-lg shadow border border-slate-700 text-white">
+    <h3 className="font-bold text-lg mb-2 text-white">Subscription Status</h3>
+              {/* WRAPPED: Clicking this saves the subscription to the database */}
+<div onClick={handleSubscriptionSuccess} className="cursor-pointer">
+  <SubscribeButton />
+</div>
            </div>
          )}
 
@@ -2127,7 +2221,7 @@ useEffect(() => {
             setView={setView}
             user={user}
             isSubscribed={isSubscribed}
-            toggleSubscription={setIsSubscribed}
+            toggleSubscription={handleSubscriptionSuccess}
          />
       </div>
     );
@@ -2136,7 +2230,7 @@ useEffect(() => {
     currentContent = <UserProfileView 
       user={user} 
       isSubscribed={isSubscribed}
-      toggleSubscription={setIsSubscribed} 
+      toggleSubscription={handleSubscriptionSuccess} 
     />;
   } else if (!tripId) {
     currentContent = (
