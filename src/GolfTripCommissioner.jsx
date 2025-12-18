@@ -1728,7 +1728,6 @@ const GolfTripCommissioner = () => {
         if (user) {
           try {
             const userRef = doc(db, "users", user.uid);
-            // using merge: true ensures we don't delete other user info
             await setDoc(userRef, { isSubscribed: true }, { merge: true });
             console.log("Stripe payment saved to database!");
           } catch (error) {
@@ -1736,8 +1735,9 @@ const GolfTripCommissioner = () => {
           }
         }
 
-        // C. Clean the URL so they aren't stuck on /success
-        window.history.replaceState(null, "", "/"); 
+        // C. FORCE REFRESH to Dashboard (This fixes the "Success Screen" issue)
+        // This makes the app reload immediately so the unlocked features appear.
+        window.location.href = '/'; 
       }
     };
     
@@ -1745,7 +1745,7 @@ const GolfTripCommissioner = () => {
     if (user || window.location.pathname === '/success') {
       handleStripeSuccess();
     }
-  }, [user]); // Re-runs when user loads
+  }, [user]);
 
   // 4. Restore Trip Context (SAFER VERSION)
   useEffect(() => {
