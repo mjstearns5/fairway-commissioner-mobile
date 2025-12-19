@@ -2226,7 +2226,7 @@ useEffect(() => {
   // --- NEW: OPEN STRIPE (Mobile Friendly) ---
   const openStripeCheckout = () => {
     // REPLACE THIS with your actual Stripe Link!
-    const stripeUrl = "https://buy.stripe.com/YOUR_ACTUAL_CODE_HERE"; 
+    const stripeUrl = "https://buy.stripe.com/test_eVqcN64DEfal63N3yh5Vu00"; 
     
     // '_system' tells the phone to open this in the Chrome app
     window.open(stripeUrl, '_system');
