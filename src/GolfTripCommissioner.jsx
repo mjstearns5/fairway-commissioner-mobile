@@ -2243,8 +2243,8 @@ useEffect(() => {
          {!isSubscribed && (
            <div className="bg-slate-800 p-4 rounded-lg shadow border border-slate-700 text-white">
     <h3 className="font-bold text-lg mb-2 text-white">Subscription Status</h3>
-              {/* WRAPPED: Clicking this saves the subscription to the database */}
-<div onClick={handleSubscriptionSuccess} className="cursor-pointer">
+              {/* CHANGE THIS LINE: from handleSubscriptionSuccess to openStripeCheckout */}
+<div onClick={openStripeCheckout} className="cursor-pointer">
   <SubscribeButton />
 </div>
            </div>
