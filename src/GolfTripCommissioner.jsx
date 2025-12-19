@@ -2223,6 +2223,14 @@ useEffect(() => {
       }
     }
   };
+  // --- NEW: OPEN STRIPE (Mobile Friendly) ---
+  const openStripeCheckout = () => {
+    // REPLACE THIS with your actual Stripe Link!
+    const stripeUrl = "https://buy.stripe.com/YOUR_ACTUAL_CODE_HERE"; 
+    
+    // '_system' tells the phone to open this in the Chrome app
+    window.open(stripeUrl, '_system');
+  };
   if (!user) {
     return <AuthScreen onLogin={handleLogin} />;
   }
@@ -2249,7 +2257,7 @@ useEffect(() => {
             setView={setView}
             user={user}
             isSubscribed={isSubscribed}
-            toggleSubscription={handleSubscriptionSuccess}
+            toggleSubscription={openStripeCheckout}
          />
       </div>
     );
@@ -2258,7 +2266,7 @@ useEffect(() => {
     currentContent = <UserProfileView 
       user={user} 
       isSubscribed={isSubscribed}
-      toggleSubscription={handleSubscriptionSuccess} 
+      toggleSubscription={openStripeCheckout}
     />;
   } else if (!tripId) {
     currentContent = (
