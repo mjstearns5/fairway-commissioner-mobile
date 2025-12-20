@@ -287,17 +287,17 @@ const UserProfileView = ({ user, isSubscribed, toggleSubscription }) => {
 
               {isSubscribed && (
                 <div className="mt-4 pt-4 border-t border-slate-200 flex justify-end">
-                  <button 
-                    onClick={handleCancelSubscription}
-                    disabled={cancelling}
-                    className="text-xs font-bold text-red-500 hover:text-red-700 flex items-center gap-1 disabled:opacity-50"
-                  >
-                    {cancelling ? (
-                      <>Processing...</>
-                    ) : (
-                      <>Cancel Subscription <AlertTriangle className="w-3 h-3" /></>
-                    )}
-                  </button>
+                  {/* REPLACED: Simple Portal Button */}
+                <button
+                  onClick={() => {
+                    // PASTE YOUR PORTAL LINK HERE AGAIN
+                    const portalUrl = "https://billing.stripe.com/p/login/test_eVqcN64DEfal63N3yh5Vu00";
+                    window.open(portalUrl, '_system');
+                  }}
+                  className="w-full py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg transition flex items-center justify-center gap-2"
+                >
+                  Manage / Cancel Subscription
+                </button>
                 </div>
               )}
             </div>
@@ -564,6 +564,7 @@ const Layout = ({ children, view, setView, user, role, setRole, tripId, setTripI
     { id: 'logistics', label: 'Logistics', icon: Calendar },
     { id: 'finance', label: 'The Ledger', icon: DollarSign },
     { id: 'players', label: 'Roster', icon: Users },
+    { id: 'profile', label: 'My Profile', icon: Users }
   ];
 
   const handleExitTrip = () => {
@@ -802,23 +803,24 @@ const TripSetupView = ({ setTripId, setRole, setView, user, isSubscribed, toggle
           <p className="text-emerald-100 mb-4">
              Enter the 6-character code provided by your Commissioner.
           </p>
-          <div className="flex gap-2">
-            <input 
-              type="text" 
-              placeholder="ENTER CODE"
-              className="flex-1 p-3 border border-gray-300 rounded-lg font-mono text-lg uppercase text-slate-900 bg-white"
-              value={joinCode}
-              onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-              disabled={!isSubscribed}
-            />
-            <button 
-              onClick={handleJoinTrip}
-              disabled={!isSubscribed}
-              className="px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg transition disabled:bg-gray-400"
-            >
-              Join
-            </button>
-          </div>
+          {/* UPDATED: Stacked Layout for Mobile */}
+            <div className="flex flex-col gap-3">
+              <input
+                type="text"
+                placeholder="ENTER CODE"
+                className="w-full p-3 border border-gray-300 rounded-lg font-mono text-lg uppercase text-slate-900 bg-white text-center"
+                value={joinCode}
+                onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                disabled={!isSubscribed}
+              />
+              <button
+                onClick={handleJoinTrip}
+                disabled={!isSubscribed}
+                className="w-full py-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg transition disabled:bg-gray-400"
+              >
+                Join
+              </button>
+            </div>
        </div>
     </div>
   );
@@ -1513,6 +1515,32 @@ const Dashboard = ({ players, matches, itinerary, setView, role, teamNames }) =>
               ? "Welcome to the command center. Manage your roster, update match scores, and track expenses all from one place." 
               : "Welcome to the trip hub. Check your itinerary, view the live leaderboard, and settle up with the group."}
           </p>
+          {/* NEW: Mobile Trip Code Card (ULTRA RELIABLE) */}
+          <div 
+            onClick={() => {
+              // Try 3 places to find the code:
+              // 1. The 'activeTripId' raw storage (Most reliable)
+              // 2. The user profile storage
+              // 3. The current state variable (if available)
+              const rawId = localStorage.getItem('activeTripId');
+              const localUser = JSON.parse(localStorage.getItem('golfAppUser') || '{}');
+              const code = rawId || localUser?.lastActiveTripId || "No Code";
+              
+              navigator.clipboard.writeText(code);
+              alert('Code Copied: ' + code);
+            }}
+            className="bg-indigo-600 rounded-xl p-4 mb-6 shadow-lg text-white text-center cursor-pointer active:scale-95 transition-transform"
+          >
+            <p className="text-indigo-200 text-xs uppercase font-bold tracking-wider mb-1">
+              Invite Code (Tap to Copy)
+            </p>
+            <div className="text-3xl font-mono font-bold tracking-widest">
+              {/* Display: Check Raw Storage first, then User Profile */}
+              {localStorage.getItem('activeTripId') || 
+               JSON.parse(localStorage.getItem('golfAppUser') || '{}')?.lastActiveTripId || 
+               "..."}
+            </div>
+          </div>
           <div className="flex flex-wrap gap-3">
             <button onClick={() => setView('tournament')} className="bg-white text-emerald-900 px-4 py-2 rounded-lg font-bold text-sm hover:bg-emerald-50 transition-colors">
               {role === 'commissioner' ? 'Manage Scores' : 'View Leaderboard'}
@@ -2231,6 +2259,16 @@ useEffect(() => {
     // '_system' tells the phone to open this in the Chrome app
     window.open(stripeUrl, '_system');
   };
+  
+  // <--- PASTE HERE (Line 2262 approx) --->
+
+  // --- NEW: MANAGE/CANCEL SUBSCRIPTION ---
+  const openStripePortal = () => {
+    // PASTE YOUR PORTAL LINK HERE!
+    const portalUrl = "https://billing.stripe.com/p/login/test_eVqcN64DEfal63N3yh5Vu00";
+    
+    window.open(portalUrl, '_system');
+  };
   if (!user) {
     return <AuthScreen onLogin={handleLogin} />;
   }
@@ -2244,9 +2282,17 @@ useEffect(() => {
            <div className="bg-slate-800 p-4 rounded-lg shadow border border-slate-700 text-white">
     <h3 className="font-bold text-lg mb-2 text-white">Subscription Status</h3>
               {/* CHANGE THIS LINE: from handleSubscriptionSuccess to openStripeCheckout */}
-<div onClick={openStripeCheckout} className="cursor-pointer">
+<div onClick={openStripeCheckout} className="cursor-pointer mb-2">
   <SubscribeButton />
 </div>
+
+{/* NEW: Manual Refresh Button */}
+<p 
+  onClick={() => window.location.reload()} 
+  className="text-xs text-slate-400 underline cursor-pointer mt-2"
+>
+  Already paid? Tap to refresh
+</p>
            </div>
          )}
 
