@@ -2285,7 +2285,13 @@ useEffect(() => {
 <div onClick={openStripeCheckout} className="cursor-pointer mb-2">
   <SubscribeButton />
 </div>
-
+{/* NEW: Manual Refresh Button */}
+<p 
+  onClick={() => window.location.reload()} 
+  className="text-xs text-slate-400 underline cursor-pointer mt-2"
+>
+  Already paid? Tap to refresh
+</p>
 {/* NEW: Manual Refresh Button */}
 <p 
   onClick={() => window.location.reload()} 
