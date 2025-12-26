@@ -15,3 +15,6 @@ Thumbs.db
 # Env variables (Safety)
 .env
 .env.local
+server/node_modules
+Build
+stripe

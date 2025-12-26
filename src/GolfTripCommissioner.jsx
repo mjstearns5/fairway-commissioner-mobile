@@ -1,5 +1,6 @@
 // 1. ALL IMPORTS GO FIRST
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { Capacitor } from "@capacitor/core"; // <--- ADD THIS LINE
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import { db } from './firebase'; 
 import { 
@@ -9,6 +10,7 @@ import {
 import SubscribeButton from './components/SubscribeButton';               // <--- Your new button
 import { auth } from './firebase';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "firebase/auth";
+import { App } from '@capacitor/app';
 
 // 2. YOUR ICON IMPORTS (Keep these)
 import { 
@@ -82,11 +84,12 @@ const AuthScreen = ({ onLogin }) => {
         const newUser = await createUserWithEmailAndPassword(auth, email, password);
         
         // Create the user profile in Firestore
-        await setDoc(doc(db, "users", newUser.user.uid), {
-          email: email,
-          createdAt: new Date(),
-          role: "commissioner" // Default role
-        });
+      await setDoc(doc(db, "users", newUser.user.uid), {
+        email: email,
+        createdAt: new Date(),
+        role: "commissioner", 
+        isSubscribed: false
+      });
         
         onLogin(newUser.user);
       }
@@ -577,7 +580,7 @@ const Layout = ({ children, view, setView, user, role, setRole, tripId, setTripI
     <div className="flex flex-col h-screen bg-slate-900 text-slate-100 font-sans overflow-hidden">
       
       {/* 1. TOP HEADER */}
-      <div className="bg-emerald-800 text-white p-4 shadow-md shrink-0 z-50">
+      <div className="bg-emerald-800 text-white px-4 pb-4 pt-20 shadow-md shrink-0 z-50 h-auto">
         <div className="flex justify-between items-center">
           
           {/* Logo */}
@@ -683,7 +686,7 @@ const Layout = ({ children, view, setView, user, role, setRole, tripId, setTripI
 
       {/* MOBILE MENU OVERLAY */}
       {isMenuOpen && (
-        <div className="md:hidden absolute inset-0 top-16 bg-slate-900 z-40 p-4">
+        <div className="md:hidden absolute inset-0 top-32 bg-slate-900 z-40 p-4 overflow-y-auto pb-24">
            {navItems.map((item) => (
              <button
                key={item.id}
@@ -1632,6 +1635,24 @@ const Dashboard = ({ players, matches, itinerary, setView, role, teamNames }) =>
 
 // --- Main App Container ---
 const GolfTripCommissioner = () => {
+  // ⚡️ AUTO-REFRESH LISTENER (iOS ONLY)
+  useEffect(() => {
+    // 🛡 Protection: If this is Android, STOP immediately. Do not run this listener.
+    if (Capacitor.getPlatform() !== 'ios') return;
+
+    console.log("🎧 Setting up iOS App State Listener...");
+    const setupListener = async () => {
+      const listener = await App.addListener('appStateChange', ({ isActive }) => {
+        if (isActive) {
+          console.log("📱 iOS App returned from background! Refreshing data...");
+          window.location.reload();
+        }
+      });
+      return listener;
+    };
+    const listenerPromise = setupListener();
+    return () => { listenerPromise.then(handle => handle.remove()); };
+  }, []);
   // --- FIREBASE TEST LOGIC START ---
   const [testName, setTestName] = useState("");
   const [testUsers, setTestUsers] = useState([]);
@@ -2292,13 +2313,7 @@ useEffect(() => {
 >
   Already paid? Tap to refresh
 </p>
-{/* NEW: Manual Refresh Button */}
-<p 
-  onClick={() => window.location.reload()} 
-  className="text-xs text-slate-400 underline cursor-pointer mt-2"
->
-  Already paid? Tap to refresh
-</p>
+
            </div>
          )}
 

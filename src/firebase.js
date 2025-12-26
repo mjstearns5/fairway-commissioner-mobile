@@ -1,19 +1,37 @@
 import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
-import { getAuth } from "firebase/auth"; // <--- This was missing!
+import { initializeAuth, getAuth, inMemoryPersistence, browserLocalPersistence } from "firebase/auth";
+import { Capacitor } from "@capacitor/core"; 
 
+// ⚠️ HARDCODED KEYS (Required for Simulator)
 const firebaseConfig = {
-  apiKey: process.env.REACT_APP_FIREBASE_API_KEY,
-  authDomain: process.env.REACT_APP_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.REACT_APP_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.REACT_APP_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.REACT_APP_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.REACT_APP_FIREBASE_APP_ID
+  apiKey: "AIzaSyDLkWCFKFTx_B8O_lUBkvrqbj4osSH6bAI",
+  authDomain: "fairway-commissioner.firebaseapp.com",
+  projectId: "fairway-commissioner",
+  storageBucket: "fairway-commissioner.firebasestorage.app",
+  messagingSenderId: "750462707834",
+  appId: "1:750462707834:web:6befd708a4fbf6e99733c3"
 };
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 
-// Initialize Services and Export them
-export const db = getFirestore(app);
-export const auth = getAuth(app);      // <--- This fixes the error
+let auth;
+
+// ⚡️ THE REAL FIX: 
+// initializeAuth + Memory Persistence + Hardcoded Keys
+if (Capacitor.getPlatform() === 'ios') {
+    auth = initializeAuth(app, {
+        persistence: inMemoryPersistence
+    });
+    console.log("📱 iOS: Auth started directly in Memory Mode with Valid Keys");
+} else {
+    // Android/Web
+    auth = getAuth(app);
+    auth.setPersistence(browserLocalPersistence);
+}
+
+// Initialize Database
+const db = getFirestore(app);
+
+export { auth, db };
