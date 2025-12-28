@@ -557,6 +557,7 @@ const ManageTripView = () => {
 // 7. Navigation & Layout
 const Layout = ({ children, view, setView, user, role, setRole, tripId, setTripId, handleLogout }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const isIOS = Capacitor.getPlatform() === 'ios'; // <--- ADD THIS LINE
 
   const navItems = [
     { id: 'setup', label: 'Trip Setup', icon: MapPin },
@@ -580,7 +581,7 @@ const Layout = ({ children, view, setView, user, role, setRole, tripId, setTripI
     <div className="flex flex-col h-screen bg-slate-900 text-slate-100 font-sans overflow-hidden">
       
       {/* 1. TOP HEADER */}
-      <div className="bg-emerald-800 text-white px-4 pb-4 pt-20 shadow-md shrink-0 z-50 h-auto">
+      <div className={`bg-emerald-800 text-white px-4 pb-4 shadow-md shrink-0 z-50 h-auto ${isIOS ? 'pt-20' : 'pt-4'}`}>
         <div className="flex justify-between items-center">
           
           {/* Logo */}
@@ -686,7 +687,7 @@ const Layout = ({ children, view, setView, user, role, setRole, tripId, setTripI
 
       {/* MOBILE MENU OVERLAY */}
       {isMenuOpen && (
-        <div className="md:hidden absolute inset-0 top-32 bg-slate-900 z-40 p-4 overflow-y-auto pb-24">
+        <div className={`md:hidden absolute inset-0 bg-slate-900 z-40 p-4 overflow-y-auto pb-24 ${isIOS ? 'top-32' : 'top-16'}`}>
            {navItems.map((item) => (
              <button
                key={item.id}
