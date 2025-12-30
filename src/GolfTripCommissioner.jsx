@@ -2273,23 +2273,56 @@ useEffect(() => {
       }
     }
   };
-  // --- NEW: OPEN STRIPE (Mobile Friendly) ---
-  const openStripeCheckout = () => {
-    // REPLACE THIS with your actual Stripe Link!
-    const stripeUrl = "https://buy.stripe.com/test_eVqcN64DEfal63N3yh5Vu00"; 
-    
-    // '_system' tells the phone to open this in the Chrome app
-    window.open(stripeUrl, '_system');
+  // --- NEW: SERVER-CONNECTED CHECKOUT ---
+  const openStripeCheckout = async () => {
+    if (!user || !user.email) return alert("Please sign in first.");
+
+    try {
+      // 1. Talk to your Render Server to get a custom session
+      const response = await fetch('https://fairway-commissioner-mobile-api.onrender.com/create-checkout-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: user.email }),
+      });
+
+      const data = await response.json();
+
+      if (data.url) {
+        // 2. Open the specific session URL your server created
+        window.open(data.url, '_system');
+      } else {
+        alert("Error starting payment.");
+      }
+    } catch (error) {
+      console.error("Payment Error:", error);
+      alert("Could not connect to payment server.");
+    }
   };
   
   // <--- PASTE HERE (Line 2262 approx) --->
 
-  // --- NEW: MANAGE/CANCEL SUBSCRIPTION ---
-  const openStripePortal = () => {
-    // PASTE YOUR PORTAL LINK HERE!
-    const portalUrl = "https://billing.stripe.com/p/login/test_eVqcN64DEfal63N3yh5Vu00";
-    
-    window.open(portalUrl, '_system');
+  // --- NEW: SERVER-CONNECTED PORTAL ---
+  const openStripePortal = async () => {
+    if (!user || !user.email) return;
+
+    try {
+      const response = await fetch('https://fairway-commissioner-mobile-api.onrender.com/create-portal-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: user.email }),
+      });
+
+      const data = await response.json();
+
+      if (data.url) {
+        window.open(data.url, '_system');
+      } else {
+        alert("Could not load subscription settings.");
+      }
+    } catch (error) {
+      console.error("Portal Error:", error);
+      alert("Could not connect to server.");
+    }
   };
   if (!user) {
     return <AuthScreen onLogin={handleLogin} />;
