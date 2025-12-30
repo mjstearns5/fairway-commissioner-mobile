@@ -2,21 +2,23 @@ require('dotenv').config(); // Load .env from root
 const express = require('express');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const cors = require('cors');
-const { initializeApp } = require("firebase/app");
-const { getFirestore, doc, updateDoc, collection, query, where, getDocs } = require("firebase/firestore");
+// --- NEW: ADMIN SETUP (Works on Render & Local) ---
+const admin = require('firebase-admin');
 
-// 1. Initialize Firebase (So the server can unlock the app)
-const firebaseConfig = {
-  apiKey: process.env.REACT_APP_FIREBASE_API_KEY,
-  authDomain: process.env.REACT_APP_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.REACT_APP_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.REACT_APP_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.REACT_APP_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.REACT_APP_FIREBASE_APP_ID
-};
-const firebaseApp = initializeApp(firebaseConfig);
-const db = getFirestore(firebaseApp);
+let serviceAccount;
+if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+  // Cloud: Read from the Secret Variable
+  serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+} else {
+  // Local: Read from the file
+  serviceAccount = require('./serviceAccountKey.json');
+}
 
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount)
+});
+
+const db = admin.firestore();
 const app = express();
 
 // 2. CRITICAL: Stripe Webhooks need the "Raw" body, not JSON.
