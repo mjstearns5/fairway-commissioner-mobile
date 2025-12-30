@@ -581,7 +581,7 @@ const Layout = ({ children, view, setView, user, role, setRole, tripId, setTripI
     <div className="flex flex-col h-screen bg-slate-900 text-slate-100 font-sans overflow-hidden">
       
       {/* 1. TOP HEADER */}
-      <div className={`bg-emerald-800 text-white px-4 pb-4 shadow-md shrink-0 z-50 h-auto ${isIOS ? 'pt-20' : 'pt-4'}`}>
+      <div className={`bg-emerald-800 text-white px-4 pb-4 shadow-md shrink-0 z-50 h-auto ${isIOS ? 'pt-20' : 'pt-12'}`}>
         <div className="flex justify-between items-center">
           
           {/* Logo */}
@@ -677,7 +677,7 @@ const Layout = ({ children, view, setView, user, role, setRole, tripId, setTripI
         </aside>
 
         {/* MAIN CONTENT AREA */}
-        <main className="flex-1 overflow-y-auto p-4 md:p-8 bg-slate-900 relative">
+        <main className="flex-1 overflow-y-auto p-4 md:p-8 bg-slate-900 relative pb-32">
            <div className="max-w-5xl mx-auto">
              {children}
            </div>
