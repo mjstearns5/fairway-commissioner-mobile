@@ -41,24 +41,23 @@ app.post('/webhook', express.raw({type: 'application/json'}), async (req, res) =
     console.log(`💰 Payment received from: ${userEmail}`);
 
     try {
-        // Find the user in Firebase by their email
-        const usersRef = collection(db, "users");
-        const q = query(usersRef, where("email", "==", userEmail));
-        const querySnapshot = await getDocs(q);
+      // --- CORRECT SERVER-SIDE SYNTAX ---
+      const usersRef = db.collection('users');
+      const snapshot = await usersRef.where('email', '==', userEmail).get();
 
-        if (!querySnapshot.empty) {
-            // Unlock the app!
-            const userDoc = querySnapshot.docs[0];
-            await updateDoc(doc(db, "users", userDoc.id), {
-                isSubscribed: true,
-                subscriptionDate: new Date()
-            });
-            console.log(`✅ SUCCESS: Unlocked app for ${userEmail}`);
-        } else {
-            console.log(`⚠️ User not found for email: ${userEmail}`);
-        }
-    } catch (error) {
-        console.error("❌ Database Error:", error);
+      if (snapshot.empty) {
+        console.log(`⚠️ User not found for email: ${userEmail}`);
+      } else {
+        snapshot.forEach(async (doc) => {
+          await doc.ref.update({
+             isSubscribed: true,
+             subscriptionDate: new Date()
+          });
+          console.log(`✅ SUCCESS: Unlocked app for ${userEmail}`);
+        });
+      }
+    } catch (dbError) {
+      console.error('❌ Database Error:', dbError);
     }
   }
 
