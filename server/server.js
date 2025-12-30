@@ -81,13 +81,56 @@ app.post('/create-checkout-session', async (req, res) => {
           quantity: 1,
         },
       ],
-      success_url: 'http://localhost:3000/success',
-      cancel_url: 'http://localhost:3000/cancel',
+      // NEW CODE (Points to Render)
+success_url: 'https://fairway-commissioner-mobile-api.onrender.com/success',
+cancel_url: 'https://fairway-commissioner-mobile-api.onrender.com/cancel',
     });
     res.json({ url: session.url });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
 });
+// 6. Portal Route (Manage Subscription)
+app.post('/create-portal-session', async (req, res) => {
+  try {
+    const { email } = req.body;
+    const customers = await stripe.customers.list({ email, limit: 1 });
+    
+    if (customers.data.length === 0) {
+      return res.status(404).json({ error: 'No customer found' });
+    }
 
+    const session = await stripe.billingPortal.sessions.create({
+      customer: customers.data[0].id,
+      return_url: 'https://fairway-commissioner-mobile-api.onrender.com/success', // <--- This sends them back to the app!
+    });
+
+    res.json({ url: session.url });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+// --- NEW: Simple Success/Cancel Pages ---
+app.get('/success', (req, res) => {
+  res.send(`
+    <html>
+      <body style="font-family: sans-serif; text-align: center; padding: 50px;">
+        <h1 style="color: green;">Payment Successful! ✅</h1>
+        <p>Your subscription is active.</p>
+        <p>You can close this window and return to the <b>Fairway Commissioner</b> app.</p>
+      </body>
+    </html>
+  `);
+});
+
+app.get('/cancel', (req, res) => {
+  res.send(`
+    <html>
+      <body style="font-family: sans-serif; text-align: center; padding: 50px;">
+        <h1>Payment Canceled</h1>
+        <p>You can close this window and return to the app.</p>
+      </body>
+    </html>
+  `);
+});
 app.listen(4000, () => console.log('Server running on port 4000'));
