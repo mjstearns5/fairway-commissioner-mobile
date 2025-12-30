@@ -50,13 +50,14 @@ app.post('/webhook', express.raw({type: 'application/json'}), async (req, res) =
       if (snapshot.empty) {
         console.log(`⚠️ User not found for email: ${userEmail}`);
       } else {
-        snapshot.forEach(async (doc) => {
+        // FIX: Use a loop that waits properly
+      for (const doc of snapshot.docs) {
           await doc.ref.update({
              isSubscribed: true,
              subscriptionDate: new Date()
           });
           console.log(`✅ SUCCESS: Unlocked app for ${userEmail}`);
-        });
+      }
       }
     } catch (dbError) {
       console.error('❌ Database Error:', dbError);
