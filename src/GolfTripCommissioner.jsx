@@ -2279,26 +2279,26 @@ useEffect(() => {
     if (!user || !user.email) return alert("Please sign in first.");
 
     try {
-        // I used your direct link here to be safe:
-        const response = await fetch('https://fairway-commissioner-mobile-api.onrender.com/create-checkout-session', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email: user.email }),
-        });
+      // 1. Talk to your Render Server to get a custom session
+      const response = await fetch('https://fairway-commissioner-mobile-api.onrender.com/create-checkout-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: user.email }),
+      });
 
-        const data = await response.json();
+      const data = await response.json();
 
-        if (data.url) {
-            // ✅ NEW: Uses the browser plugin (Fixes iPhone)
-            await Browser.open({ url: data.url });
-        } else {
-            alert("Error starting payment.");
-        }
+      if (data.url) {
+        // 2. Open the specific session URL your server created
+        window.open(data.url, '_system');
+      } else {
+        alert("Error starting payment.");
+      }
     } catch (error) {
-        console.error("Payment Error:", error);
-        alert("Could not connect to payment server.");
+      console.error("Payment Error:", error);
+      alert("Could not connect to payment server.");
     }
-};
+  };
   
   // <--- PASTE HERE (Line 2262 approx) --->
 
@@ -2307,26 +2307,24 @@ useEffect(() => {
     if (!user || !user.email) return;
 
     try {
-        // I used your direct link here too:
-        const response = await fetch('https://fairway-commissioner-mobile-api.onrender.com/create-portal-session', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email: user.email }),
-        });
+      const response = await fetch('https://fairway-commissioner-mobile-api.onrender.com/create-portal-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: user.email }),
+      });
 
-        const data = await response.json();
+      const data = await response.json();
 
-        if (data.url) {
-            // ✅ NEW: Uses the browser plugin
-            await Browser.open({ url: data.url });
-        } else {
-            alert("Could not load subscription settings.");
-        }
+      if (data.url) {
+        window.open(data.url, '_system');
+      } else {
+        alert("Could not load subscription settings.");
+      }
     } catch (error) {
-        console.error("Portal Error:", error);
-        alert("Could not connect to server.");
+      console.error("Portal Error:", error);
+      alert("Could not connect to server.");
     }
-};
+  };
   if (!user) {
     return <AuthScreen onLogin={handleLogin} />;
   }
