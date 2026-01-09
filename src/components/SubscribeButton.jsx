@@ -41,7 +41,7 @@ const SubscribeButton = ({ onSuccess }) => {
       disabled={isLoading}
       className="w-full bg-green-600 text-white font-bold py-3 px-4 rounded-lg shadow-lg hover:bg-green-700 transition duration-300 disabled:opacity-50"
     >
-      {isLoading ? "Processing..." : "Join the Commissioner's Club ($19.99/yr)"}
+      {isLoading ? "Processing..." : "Join the Commissioner's Club ($14.99/yr)"}
     </button>
   );
 };
