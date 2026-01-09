@@ -1,5 +1,6 @@
 // 1. ALL IMPORTS GO FIRST
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { Purchases, LOG_LEVEL } from '@revenuecat/purchases-capacitor';
 import { Capacitor } from "@capacitor/core"; // <--- ADD THIS LINE
 import { Browser } from '@capacitor/browser';
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
@@ -1637,6 +1638,29 @@ const Dashboard = ({ players, matches, itinerary, setView, role, teamNames }) =>
 
 // --- Main App Container ---
 const GolfTripCommissioner = () => {
+  useEffect(() => {
+    const initRevenueCat = async () => {
+      try {
+        // 1. Enable debug logs to catch any setup issues
+        await Purchases.setLogLevel({ level: LOG_LEVEL.DEBUG });
+
+        // 2. Configure based on platform
+        if (Capacitor.getPlatform() === 'ios') {
+            // REPLACE THIS WITH YOUR ACTUAL APPLE KEY (starts with appl_)
+            await Purchases.configure({ apiKey: 'appl_tOvHgGHoyoinCWqidNxKeuEvpsF' });
+        } else if (Capacitor.getPlatform() === 'android') {
+            // REPLACE THIS WITH YOUR ACTUAL GOOGLE KEY (starts with goog_)
+            await Purchases.configure({ apiKey: 'goog_UzhTMGwJxYNxqqkMmdcedlEItHf' });
+        }
+        
+        console.log("RevenueCat configured successfully");
+      } catch (error) {
+        console.error("Error configuring RevenueCat:", error);
+      }
+    };
+
+    initRevenueCat();
+  }, []);
   // ⚡️ AUTO-REFRESH LISTENER (iOS ONLY)
   useEffect(() => {
     // 🛡 Protection: If this is Android, STOP immediately. Do not run this listener.

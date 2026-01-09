@@ -1,53 +1,48 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { Purchases } from '@revenuecat/purchases-capacitor';
 
-const SubscribeButton = () => {
-  
-  const handleCheckout = async () => {
+const SubscribeButton = ({ onSuccess }) => {
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleSubscribe = async () => {
+    setIsLoading(true);
     try {
-      // 1. Send a request to your backend to create a session
-      const response = await fetch('http://localhost:4000/create-checkout-session', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
+      // 1. Get the "Current Offering" (The Annual Package we set up)
+      const offerings = await Purchases.getOfferings();
+      
+      if (offerings.current !== null && offerings.current.availablePackages.length > 0) {
+        // 2. Select the first available package (Annual)
+        const packageToBuy = offerings.current.availablePackages[0];
+        
+        // 3. Launch the Apple/Google Payment Popup
+        const { customerInfo } = await Purchases.purchasePackage({ aPackage: packageToBuy });
 
-      const data = await response.json();
-
-      if (response.ok) {
-        // 2. Redirect the user to the Stripe Checkout page
-        window.location.href = data.url; 
+        // 4. Check if the payment worked
+        if (customerInfo.entitlements.active['premium_access']) {
+          alert("Welcome to the Club! ⛳️");
+          if (onSuccess) onSuccess(); // Update your DB/State here
+        }
       } else {
-        console.error('Checkout Failed:', data.error);
+        alert("No subscriptions found. Please checks your setup.");
       }
     } catch (error) {
-      console.error('Error:', error);
+      if (!error.userCancelled) {
+        console.error("Purchase Error:", error);
+        alert("Purchase failed. Please try again.");
+      }
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  // This return statement includes the container, text, and styled button
   return (
-    <div className="subscription-card" style={{ border: '1px solid #ccc', padding: '20px', borderRadius: '8px', maxWidth: '300px', textAlign: 'center', margin: '20px auto' }}>
-        <h3>Yearly Premium</h3>
-        <p style={{ fontSize: '20px', fontWeight: 'bold' }}>$15 / year</p>
-        <p>Get full access to all features.</p>
-        
-        <button 
-          onClick={handleCheckout} 
-          style={{ 
-            padding: '10px 20px', 
-            fontSize: '16px', 
-            background: '#6772e5', // Stripe's signature purple color
-            color: '#fff', 
-            border: 'none', 
-            borderRadius: '4px', 
-            cursor: 'pointer',
-            marginTop: '10px'
-          }}
-        >
-          Subscribe Now
-        </button>
-    </div>
+    <button 
+      onClick={handleSubscribe} 
+      disabled={isLoading}
+      className="w-full bg-green-600 text-white font-bold py-3 px-4 rounded-lg shadow-lg hover:bg-green-700 transition duration-300 disabled:opacity-50"
+    >
+      {isLoading ? "Processing..." : "Join the Commissioner's Club ($19.99/yr)"}
+    </button>
   );
 };
 
