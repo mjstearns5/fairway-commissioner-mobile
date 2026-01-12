@@ -2,16 +2,15 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Purchases, LOG_LEVEL } from '@revenuecat/purchases-capacitor';
 import { Capacitor } from "@capacitor/core"; // <--- ADD THIS LINE
-import { Browser } from '@capacitor/browser';
+import SubscribeButton from './components/SubscribeButton';
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import { db } from './firebase'; 
 import { 
   collection, addDoc, getDocs, getDoc, doc, updateDoc, query, where, setDoc, deleteDoc, 
   onSnapshot, orderBy, serverTimestamp 
 } from "firebase/firestore";
-import SubscribeButton from './components/SubscribeButton';               // <--- Your new button
 import { auth } from './firebase';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "firebase/auth";
+import { onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "firebase/auth";
 import { App } from '@capacitor/app';
 
 // 2. YOUR ICON IMPORTS (Keep these)
@@ -197,23 +196,13 @@ const AuthScreen = ({ onLogin }) => {
 };
 
 // 2. User Profile View
-const UserProfileView = ({ user, isSubscribed, toggleSubscription }) => {
+const UserProfileView = ({ user, isSubscribed, onSuccess }) => {
   const [resetSent, setResetSent] = useState(false);
   const [cancelling, setCancelling] = useState(false);
 
   const handlePasswordReset = async () => {
     // Mock reset
     setResetSent(true);
-  };
-
-  const handleCancelSubscription = async () => {
-    if (!window.confirm("Are you sure you want to cancel your Commissioner license?")) return;
-    
-    setCancelling(true);
-    setTimeout(() => {
-      toggleSubscription(false);
-      setCancelling(false);
-    }, 1000);
   };
 
   return (
@@ -289,22 +278,25 @@ const UserProfileView = ({ user, isSubscribed, toggleSubscription }) => {
                   </div>
                 )}
               </div>
-
+              {/* Show Subscribe Button only if NOT subscribed */}
+{!isSubscribed && (
+    <div className="mt-4">
+        <SubscribeButton onSuccess={onSuccess} />
+    </div>
+)}
               {isSubscribed && (
-                <div className="mt-4 pt-4 border-t border-slate-200 flex justify-end">
-                  {/* REPLACED: Simple Portal Button */}
-                <button
-                  onClick={() => {
-                    // PASTE YOUR PORTAL LINK HERE AGAIN
-                    const portalUrl = "https://billing.stripe.com/p/login/test_eVqcN64DEfal63N3yh5Vu00";
-                    window.open(portalUrl, '_system');
-                  }}
-                  className="w-full py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg transition flex items-center justify-center gap-2"
-                >
-                  Manage / Cancel Subscription
-                </button>
-                </div>
-              )}
+    <div className="mt-4 pt-4 border-t border-slate-200 flex justify-end">
+        <button
+            onClick={async () => {
+                // This opens the native Apple/Google subscription page
+                await Purchases.presentCustomerInfo(); 
+            }}
+            className="w-full py-3 bg-slate-600 hover:bg-slate-700 text-white font-bold rounded-lg transition flex items-center justify-center gap-2"
+        >
+            Manage Subscription
+        </button>
+    </div>
+)}
             </div>
           </div>
 
@@ -713,7 +705,7 @@ const Layout = ({ children, view, setView, user, role, setRole, tripId, setTripI
 
 // 8. Trip Setup View
 // 8. Trip Setup View (Updated with Subscription Lock)
-const TripSetupView = ({ setTripId, setRole, setView, user, isSubscribed, toggleSubscription }) => {
+const TripSetupView = ({ setTripId, setRole, setView, user, isSubscribed, onSuccess }) => {
   const [joinCode, setJoinCode] = React.useState('');
 
   const finalizeCreateTrip = async () => {
@@ -1638,28 +1630,55 @@ const Dashboard = ({ players, matches, itinerary, setView, role, teamNames }) =>
 
 // --- Main App Container ---
 const GolfTripCommissioner = () => {
+  // --- MASTER REVENUECAT SETUP (Config + Login in Order) ---
   useEffect(() => {
-    const initRevenueCat = async () => {
+    const initMasterSequence = async () => {
       try {
-        // 1. Enable debug logs to catch any setup issues
-        await Purchases.setLogLevel({ level: LOG_LEVEL.DEBUG });
-
-        // 2. Configure based on platform
-        if (Capacitor.getPlatform() === 'ios') {
-            // REPLACE THIS WITH YOUR ACTUAL APPLE KEY (starts with appl_)
-            await Purchases.configure({ apiKey: 'appl_tOvHgGHoyoinCWqidNxKeuEvpsF' });
-        } else if (Capacitor.getPlatform() === 'android') {
-            // REPLACE THIS WITH YOUR ACTUAL GOOGLE KEY (starts with goog_)
-            await Purchases.configure({ apiKey: 'goog_UzhTMGwJxYNxqqkMmdcedlEItHf' });
+        console.log("🚀 Starting RevenueCat Master Sequence...");
+        await Purchases.setLogLevel(LOG_LEVEL.DEBUG);
+        // 1. CONFIGURE REVENUECAT (Must happen first!)
+        if (Capacitor.getPlatform() === 'android') {
+           await Purchases.configure({ apiKey: "goog_UzhTMGwJxYNxqqkMmdcedlEitHf" });
+        } else {
+           await Purchases.configure({ apiKey: "appl_tOvHgGHoyoincWqidNxKeuEvpsF" });
         }
-        
-        console.log("RevenueCat configured successfully");
-      } catch (error) {
-        console.error("Error configuring RevenueCat:", error);
+        console.log("✅ RevenueCat Configured.");
+
+        // 2. LISTEN FOR FIREBASE AUTH (Only after config is done)
+        const unsubscribe = onAuthStateChanged(auth, async (user) => {
+          if (user) {
+            console.log("👤 Firebase User Found:", user.uid);
+            
+            // 3. LOG IN (Links the "Already Subscribed" receipt to this user)
+            try {
+              await Purchases.logIn({ appUserID: user.uid });
+              console.log("🔗 Linked to RevenueCat ID:", user.uid);
+              
+              // 4. CHECK STATUS (Now that we are linked)
+              await checkSubscriptionStatus();
+            } catch (loginError) {
+              console.error("❌ Login Failed:", loginError);
+            }
+          } else {
+            console.log("⚠️ No user logged in yet. RevenueCat staying Anonymous.");
+          }
+        });
+
+        // Cleanup listener when app closes
+        return () => unsubscribe();
+
+      } catch (e) {
+        console.error("❌ Critical Setup Error:", e);
       }
     };
 
-    initRevenueCat();
+    initMasterSequence();
+    
+    // Optional: Keep the background update listener separate or here
+    Purchases.addCustomerInfoUpdateListener((info) => {
+        checkSubscriptionStatus();
+    });
+
   }, []);
   // ⚡️ AUTO-REFRESH LISTENER (iOS ONLY)
   useEffect(() => {
@@ -1736,6 +1755,54 @@ const GolfTripCommissioner = () => {
     const saved = localStorage.getItem('golfAppSubscribed');
     return saved === 'true';
   });
+
+  // --- STEP 1.5: CHECK SUBSCRIPTION STATUS FROM REVENUECAT ---
+  // --- STEP 1.5: CHECK STATUS & UPDATE FIREBASE ---
+  const checkSubscriptionStatus = async () => {
+    try {
+      console.log("Checking RevenueCat status...");
+      const customerInfo = await Purchases.getCustomerInfo();
+      alert("DEBUG DATA: " + JSON.stringify(customerInfo.entitlements.active));
+      // ✅ SAFE CHECK: This prevents the "undefined" crash
+const isPaid = customerInfo?.entitlements?.active?.['premium_access'] !== undefined;
+      
+      if (isPaid) {
+        console.log("✅ User is subscribed (RevenueCat confirmed).");
+        setIsSubscribed(true);
+
+        // --- FIREBASE UPDATE ---
+        // We use 'auth.currentUser' to be 100% sure we have the real user ID
+        const currentUser = auth.currentUser; 
+        
+        if (currentUser) {
+          console.log(`Saving status to Firebase for: ${currentUser.email}`);
+          try {
+            const userRef = doc(db, "users", currentUser.uid);
+            await setDoc(userRef, { 
+              isSubscribed: true,
+              subscriptionStatus: 'active',
+              lastUpdated: new Date()
+            }, { merge: true });
+            console.log("🔥 Firebase update SUCCESS!");
+          } catch (err) {
+            console.error("❌ Firebase write failed:", err);
+            alert("Database Error: " + err.message); // This will tell us if permission is denied
+          }
+        } else {
+          console.error("⚠️ Cannot update Firebase: No user logged in.");
+        }
+        // -----------------------
+
+      } else {
+        console.log("User is NOT subscribed.");
+        setIsSubscribed(false);
+      }
+    } catch (e) {
+      console.error("Error checking subscription:", e);
+    }
+  };
+
+  
 
   // --- STEP 1: SAVE TRIP & ROLE TO DATABASE (Cloud Memory) ---
   useEffect(() => {
@@ -2362,8 +2429,8 @@ useEffect(() => {
            <div className="bg-slate-800 p-4 rounded-lg shadow border border-slate-700 text-white">
     <h3 className="font-bold text-lg mb-2 text-white">Subscription Status</h3>
               {/* CHANGE THIS LINE: from handleSubscriptionSuccess to openStripeCheckout */}
-<div onClick={openStripeCheckout} className="cursor-pointer mb-2">
-  <SubscribeButton />
+<div className="mb-2">
+  <SubscribeButton onSuccess={checkSubscriptionStatus} />
 </div>
 {/* NEW: Manual Refresh Button */}
 <p 
@@ -2383,7 +2450,7 @@ useEffect(() => {
             setView={setView}
             user={user}
             isSubscribed={isSubscribed}
-            toggleSubscription={openStripeCheckout}
+            onSuccess={() => setIsSubscribed(true)}
          />
       </div>
     );
@@ -2392,7 +2459,7 @@ useEffect(() => {
     currentContent = <UserProfileView 
       user={user} 
       isSubscribed={isSubscribed}
-      toggleSubscription={openStripeCheckout}
+      onSuccess={checkSubscriptionStatus}
     />;
   } else if (!tripId) {
     currentContent = (

@@ -7,3 +7,14 @@
     font-size: 16px !important;
   }
 }
+/* FORCE BUTTON COLORS (Fixes Dark Mode Issues) */
+button {
+  background-color: #1e293b !important; /* This matches your Slate-800 color */
+  color: #ffffff !important;
+}
+
+/* Optional: If you want the 'restore' link to stay grey */
+button.text-slate-500 {
+  background-color: transparent !important;
+  color: #64748b !important; /* Slate-500 hex code */
+}

@@ -1,48 +1,90 @@
 import React, { useState } from 'react';
 import { Purchases } from '@revenuecat/purchases-capacitor';
 
-const SubscribeButton = ({ onSuccess }) => {
+const SubscribeButton = () => {
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubscribe = async () => {
+  const handlePurchase = async () => {
     setIsLoading(true);
     try {
-      // 1. Get the "Current Offering" (The Annual Package we set up)
+      // 1. Fetch current offerings to make sure we have a valid product
       const offerings = await Purchases.getOfferings();
       
-      if (offerings.current !== null && offerings.current.availablePackages.length > 0) {
-        // 2. Select the first available package (Annual)
-        const packageToBuy = offerings.current.availablePackages[0];
-        
-        // 3. Launch the Apple/Google Payment Popup
-        const { customerInfo } = await Purchases.purchasePackage({ aPackage: packageToBuy });
+      // Safety check: Do we have packages?
+      if (!offerings || !offerings.current || !offerings.current.annual) {
+        alert("Error: Product not found. Please try again later.");
+        setIsLoading(false);
+        return;
+      }
 
-        // 4. Check if the payment worked
-        if (customerInfo.entitlements.active['premium_access']) {
-          alert("Welcome to the Club! ⛳️");
-          if (onSuccess) onSuccess(); // Update your DB/State here
-        }
+      const { customerInfo } = await Purchases.purchasePackage({
+        aPackage: offerings.current.annual,
+      });
+
+      // 2. Check if the purchase worked
+      if (
+        customerInfo?.entitlements?.active?.['premium_access'] !== undefined
+      ) {
+         // SUCCESS! The listener in App.js will handle the navigation.
+         // We just alert the user here.
+         alert("Welcome to the Commissioner's Club!");
+      }
+    } catch (e) {
+      // 👇 THIS PRINTS THE RAW ERROR CODE SO WE KNOW THE EXACT CAUSE
+      alert("ERROR CODE: " + e.code + "\n" + e.message + "\n" + JSON.stringify(e.userInfo));
+      console.error(e); 
+    }
+     finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleRestore = async () => {
+    setIsLoading(true);
+    try {
+      const customerInfo = await Purchases.restorePurchases();
+      
+      // 👇 DEBUGGING: This alerts exactly what we got back
+      // alert("DEBUG: " + JSON.stringify(customerInfo)); 
+
+      // ✅ CRASH-PROOF CHECK (The '?' marks are critical here)
+      const isPro = customerInfo?.entitlements?.active?.['premium_access'] !== undefined;
+
+      if (isPro) {
+        alert("Purchase Restored! Unlocking app...");
       } else {
-        alert("No subscriptions found. Please checks your setup.");
+        alert("No active subscription found on this Google account.");
       }
-    } catch (error) {
-      if (!error.userCancelled) {
-        console.error("Purchase Error:", error);
-        alert("Purchase failed. Please try again.");
-      }
-    } finally {
+    } catch (e) {
+      // 👇 Debugging for Restore issues too
+      alert("RESTORE ERROR: " + e.code + "\n" + e.message + "\n" + JSON.stringify(e.userInfo));
+      console.error(e); 
+    }
+
+     finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <button 
-      onClick={handleSubscribe} 
-      disabled={isLoading}
-      className="w-full bg-green-600 text-white font-bold py-3 px-4 rounded-lg shadow-lg hover:bg-green-700 transition duration-300 disabled:opacity-50"
-    >
-      {isLoading ? "Processing..." : "Join the Commissioner's Club ($14.99/yr)"}
-    </button>
+    <div className="flex flex-col gap-3">
+      <button
+        onClick={handlePurchase}
+        disabled={isLoading}
+        className="w-full bg-slate-800 text-white font-bold py-3 px-4 rounded-lg shadow-md active:scale-95 transition-transform disabled:opacity-50"
+      >
+        {isLoading ? "Processing..." : "Join Commissioner's Club ($14.99/yr)"}
+      </button>
+
+      {/* NEW RESTORE BUTTON (v3) */}
+      <button
+        onClick={handleRestore}
+        disabled={isLoading}
+        className="text-slate-500 text-sm underline hover:text-slate-800 transition-colors"
+      >
+        Already paid? Restore Purchase (v3)
+      </button>
+    </div>
   );
 };
 
