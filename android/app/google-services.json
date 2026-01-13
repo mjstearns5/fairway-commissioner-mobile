@@ -1,0 +1,46 @@
+{
+  "project_info": {
+    "project_number": "750462707834",
+    "project_id": "fairway-commissioner",
+    "storage_bucket": "fairway-commissioner.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:750462707834:android:52ff31bfa4ca8a609733c3",
+        "android_client_info": {
+          "package_name": "com.fairway.commish"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "750462707834-m655v4petff6eua0avgtvesvmi9d3ovp.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.fairway.commish",
+            "certificate_hash": "f892977d100e8ef3f4ca5ff69ff10f96ba552c46"
+          }
+        },
+        {
+          "client_id": "750462707834-mj6taq1ig1urv0hsfkr298li2p98kov7.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.fairway.commish",
+            "certificate_hash": "58581dff995b1add14ee5f2c8a9390c7d5609835"
+          }
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBQhhxEkUi-2iOg3rp5Zj2sEf0h1HYDAbk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -196,7 +196,7 @@ const AuthScreen = ({ onLogin }) => {
 };
 
 // 2. User Profile View
-const UserProfileView = ({ user, isSubscribed, onSuccess }) => {
+const UserProfileView = ({ user, isSubscribed, onSuccess, handlePurchase, handleRestore, isLoading }) => {
   const [resetSent, setResetSent] = useState(false);
   const [cancelling, setCancelling] = useState(false);
 
@@ -212,7 +212,7 @@ const UserProfileView = ({ user, isSubscribed, onSuccess }) => {
           <UserCircle className="w-10 h-10" />
         </div>
         <div>
-          <h2 className="text-2xl font-bold text-slate-800">My Profile</h2>
+          <h2 className="text-2xl font-bold text-slate-200">My Profile</h2>
           <p className="text-slate-500 text-sm">Manage your account settings and subscription.</p>
         </div>
       </div>
@@ -281,22 +281,34 @@ const UserProfileView = ({ user, isSubscribed, onSuccess }) => {
               {/* Show Subscribe Button only if NOT subscribed */}
 {!isSubscribed && (
     <div className="mt-4">
-        <SubscribeButton onSuccess={onSuccess} />
+        <SubscribeButton 
+    handlePurchase={handlePurchase} 
+    handleRestore={handleRestore}
+    isLoading={isLoading}
+    isSubscribed={isSubscribed}
+/>
     </div>
 )}
-              {isSubscribed && (
-    <div className="mt-4 pt-4 border-t border-slate-200 flex justify-end">
-        <button
-            onClick={async () => {
-                // This opens the native Apple/Google subscription page
-                await Purchases.presentCustomerInfo(); 
-            }}
-            className="w-full py-3 bg-slate-600 hover:bg-slate-700 text-white font-bold rounded-lg transition flex items-center justify-center gap-2"
-        >
-            Manage Subscription
-        </button>
-    </div>
-)}
+              {/* Manage Subscription Button (Clean Version) */}
+            {isSubscribed && (
+                <div className="mt-4 pt-4 border-t border-slate-200 flex justify-end">
+                    <button
+                        onClick={() => {
+                            // Check if we are on iOS or Android
+                            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+                            
+                            if (isIOS) {
+                                window.open('https://apps.apple.com/account/subscriptions', '_system');
+                            } else {
+                                window.open('https://play.google.com/store/account/subscriptions', '_system');
+                            }
+                        }}
+                        className="w-full py-3 bg-slate-600 hover:bg-slate-700 text-white font-bold rounded-lg transition flex items-center justify-center gap-2"
+                    >
+                        Manage Subscription
+                    </button>
+                </div>
+            )}
             </div>
           </div>
 
@@ -549,7 +561,7 @@ const ManageTripView = () => {
 };
 
 // 7. Navigation & Layout
-const Layout = ({ children, view, setView, user, role, setRole, tripId, setTripId, handleLogout }) => {
+const Layout = ({ children, view, setView, user, role, setRole, tripId, setTripId, handleLogout, handlePurchase, handleRestore, isLoading, isSubscribed }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const isIOS = Capacitor.getPlatform() === 'ios'; // <--- ADD THIS LINE
 
@@ -705,7 +717,7 @@ const Layout = ({ children, view, setView, user, role, setRole, tripId, setTripI
 
 // 8. Trip Setup View
 // 8. Trip Setup View (Updated with Subscription Lock)
-const TripSetupView = ({ setTripId, setRole, setView, user, isSubscribed, onSuccess }) => {
+const TripSetupView = ({ setTripId, setRole, setView, user, isSubscribed, onSuccess, handlePurchase, handleRestore, isLoading }) => {
   const [joinCode, setJoinCode] = React.useState('');
 
   const finalizeCreateTrip = async () => {
@@ -1635,10 +1647,11 @@ const GolfTripCommissioner = () => {
     const initMasterSequence = async () => {
       try {
         console.log("🚀 Starting RevenueCat Master Sequence...");
+       
         await Purchases.setLogLevel(LOG_LEVEL.DEBUG);
         // 1. CONFIGURE REVENUECAT (Must happen first!)
         if (Capacitor.getPlatform() === 'android') {
-           await Purchases.configure({ apiKey: "goog_UzhTMGwJxYNxqqkMmdcedlEitHf" });
+           await Purchases.configure({ apiKey: "goog_UzhTMGwJxYNxqqkMmdcedlEItHf" });
         } else {
            await Purchases.configure({ apiKey: "appl_tOvHgGHoyoincWqidNxKeuEvpsF" });
         }
@@ -1749,6 +1762,7 @@ const GolfTripCommissioner = () => {
   const [view, setView] = useState('setup');
   const [role, setRole] = useState('player');
   const [tripId, setTripId] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
 
   // Initialize Subscription from Memory
   const [isSubscribed, setIsSubscribed] = useState(() => {
@@ -1756,51 +1770,168 @@ const GolfTripCommissioner = () => {
     return saved === 'true';
   });
 
-  // --- STEP 1.5: CHECK SUBSCRIPTION STATUS FROM REVENUECAT ---
-  // --- STEP 1.5: CHECK STATUS & UPDATE FIREBASE ---
-  const checkSubscriptionStatus = async () => {
-    try {
-      console.log("Checking RevenueCat status...");
-      const customerInfo = await Purchases.getCustomerInfo();
-      alert("DEBUG DATA: " + JSON.stringify(customerInfo.entitlements.active));
-      // ✅ SAFE CHECK: This prevents the "undefined" crash
-const isPaid = customerInfo?.entitlements?.active?.['premium_access'] !== undefined;
-      
-      if (isPaid) {
-        console.log("✅ User is subscribed (RevenueCat confirmed).");
-        setIsSubscribed(true);
 
-        // --- FIREBASE UPDATE ---
-        // We use 'auth.currentUser' to be 100% sure we have the real user ID
-        const currentUser = auth.currentUser; 
-        
-        if (currentUser) {
-          console.log(`Saving status to Firebase for: ${currentUser.email}`);
-          try {
-            const userRef = doc(db, "users", currentUser.uid);
-            await setDoc(userRef, { 
-              isSubscribed: true,
-              subscriptionStatus: 'active',
-              lastUpdated: new Date()
-            }, { merge: true });
-            console.log("🔥 Firebase update SUCCESS!");
-          } catch (err) {
-            console.error("❌ Firebase write failed:", err);
-            alert("Database Error: " + err.message); // This will tell us if permission is denied
-          }
-        } else {
-          console.error("⚠️ Cannot update Firebase: No user logged in.");
+  // --- STEP 1.5: CHECK STATUS & UPDATE FIREBASE (FORCE SYNC VERSION) ---
+    const checkSubscriptionStatus = async () => {
+        try {
+            console.log("🔄 Checking RevenueCat status (Force Fetch)...");
+            
+            // 1. Force the app to sync with the RevenueCat Server
+            // This wakes up the cache if it's stale
+            try {
+                await Purchases.syncPurchases(); 
+            } catch (e) {
+                console.log("Sync warning (ignore if offline):", e);
+            }
+
+            // 2. Get the absolute latest info (Bypassing Cache)
+            const customerInfo = await Purchases.getCustomerInfo({ 
+                fetchPolicy: "FETCH_CURRENT" 
+            });
+
+            // 3. DEBUG ALERT: Let's see exactly what the phone sees!
+            alert("DEBUG DATA:\n" + JSON.stringify(customerInfo.entitlements.active, null, 2));
+
+            // Check if the specific entitlement exists
+            const isPaid = customerInfo?.entitlements?.active?.['premium_access'] !== undefined;
+
+            if (isPaid) {
+                console.log("✅ User is subscribed (RevenueCat confirmed).");
+                setIsSubscribed(true);
+
+                // --- FIREBASE UPDATE ---
+                const currentUser = auth.currentUser;
+                if (currentUser) {
+                    console.log(`Saving status to Firebase for: ${currentUser.email}`);
+                    try {
+                        const userRef = doc(db, "users", currentUser.uid);
+                        // Using setDoc with merge=true is safer to prevent errors if doc doesn't exist
+                        await setDoc(userRef, {
+                            isSubscribed: true,
+                            subscriptionStatus: "active",
+                            lastUpdated: new Date()
+                        }, { merge: true });
+                        console.log("🔥 Firebase Updated Successfully!");
+                    } catch (firebaseError) {
+                        console.error("❌ Firebase Update Failed:", firebaseError);
+                    }
+                }
+            } else {
+                console.log("🔒 User is NOT subscribed locally.");
+                setIsSubscribed(false);
+            }
+
+        } catch (error) {
+            console.error("❌ Error checking subscription:", error);
         }
-        // -----------------------
+        };
 
-      } else {
-        console.log("User is NOT subscribed.");
-        setIsSubscribed(false);
-      }
-    } catch (e) {
-      console.error("Error checking subscription:", e);
-    }
-  };
+   // ==========================================================
+    // 1. PRODUCTION PURCHASE FUNCTION
+    // ==========================================================
+    const handlePurchase = async () => {
+        setIsLoading(true);
+        try {
+            const offerings = await Purchases.getOfferings();
+            let packageToBuy = null;
+
+            // Strategy 1: Check 'Current'
+            if (offerings.current && offerings.current.availablePackages.length > 0) {
+                packageToBuy = offerings.current.availablePackages[0];
+            } 
+            // Strategy 2: Check 'default'
+            else if (offerings.all["default"] && offerings.all["default"].availablePackages.length > 0) {
+                packageToBuy = offerings.all["default"].availablePackages[0];
+            }
+            // Strategy 3: Check First Available
+            else {
+                const allKeys = Object.keys(offerings.all);
+                if (allKeys.length > 0) {
+                   const first = offerings.all[allKeys[0]];
+                   if (first.availablePackages.length > 0) {
+                       packageToBuy = first.availablePackages[0];
+                   }
+                }
+            }
+
+            if (packageToBuy) {
+                // The fix: We wrap it in { aPackage: ... } to satisfy the plugin
+                const { customerInfo } = await Purchases.purchasePackage({ aPackage: packageToBuy });
+                
+                if (customerInfo?.entitlements?.active?.["premium_access"]) {
+                    // Success!
+                    setIsSubscribed(true);
+                    if (auth.currentUser) {
+                         const userRef = doc(db, "users", auth.currentUser.uid);
+                         await setDoc(userRef, { 
+                            isSubscribed: true, 
+                            subscriptionStatus: "active",
+                            lastUpdated: new Date()
+                         }, { merge: true });
+                    }
+                    alert("Welcome to the Commissioner's Club! You now have full access.");
+                }
+            } else {
+                alert("We couldn't find the subscription package. Please try again later or contact support.");
+            }
+
+        } catch (error) {
+            if (!error.userCancelled) {
+                alert("Purchase couldn't be completed. Please try again.");
+                console.error("Purchase Error:", error);
+            }
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    // ==========================================================
+    // 2. PRODUCTION RESTORE FUNCTION
+    // ==========================================================
+    const handleRestore = async () => {
+        setIsLoading(true);
+        try {
+            // 1. Sync & Fetch Latest
+            await Purchases.syncPurchases();
+            const customerInfo = await Purchases.getCustomerInfo({ 
+                fetchPolicy: "FETCH_CURRENT" 
+            });
+            
+            // 2. Check for Entitlement (No Alerting Raw JSON anymore)
+            if (customerInfo?.entitlements?.active?.["premium_access"]) {
+                 setIsSubscribed(true); 
+                 
+                 if (auth.currentUser) {
+                     const userRef = doc(db, "users", auth.currentUser.uid);
+                     await setDoc(userRef, { 
+                        isSubscribed: true,
+                        subscriptionStatus: "active",
+                        lastUpdated: new Date()
+                     }, { merge: true });
+                 }
+                 alert("Purchase Restored! Welcome back.");
+            } else {
+                 // Silent fail on first check, try Google Restore as backup
+                 try {
+                     const restoreInfo = await Purchases.restorePurchases();
+                     if (restoreInfo?.entitlements?.active?.["premium_access"]) {
+                         setIsSubscribed(true);
+                         alert("Purchase Restored! Welcome back.");
+                     } else {
+                         alert("We couldn't find an active subscription for this account.");
+                     }
+                 } catch (e) {
+                     alert("No subscription found to restore.");
+                 }
+            }
+
+        } catch (error) {
+            console.error("Restore Error:", error);
+            alert("Unable to restore purchase at this time.");
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
   
 
@@ -2430,15 +2561,15 @@ useEffect(() => {
     <h3 className="font-bold text-lg mb-2 text-white">Subscription Status</h3>
               {/* CHANGE THIS LINE: from handleSubscriptionSuccess to openStripeCheckout */}
 <div className="mb-2">
-  <SubscribeButton onSuccess={checkSubscriptionStatus} />
+  <SubscribeButton 
+    handlePurchase={handlePurchase} 
+    handleRestore={handleRestore}
+    isLoading={isLoading}
+    isSubscribed={isSubscribed}
+/>
 </div>
 {/* NEW: Manual Refresh Button */}
-<p 
-  onClick={() => window.location.reload()} 
-  className="text-xs text-slate-400 underline cursor-pointer mt-2"
->
-  Already paid? Tap to refresh
-</p>
+
 
            </div>
          )}
@@ -2493,6 +2624,10 @@ return (
         tripId={tripId}
         setTripId={setTripId}
         handleLogout={handleLogout}
+        handlePurchase={handlePurchase}
+    handleRestore={handleRestore}
+    isLoading={isLoading}
+    isSubscribed={isSubscribed}
       >
 
         {/* --- THE SWITCHER --- */}
@@ -2503,7 +2638,12 @@ return (
           {/* Option B: If URL is "/premium", show the Subscription Card */}
           <Route path="/premium" element={
             <div className="flex justify-center items-center h-screen bg-gray-50">
-               <SubscribeButton />
+               <SubscribeButton 
+    handlePurchase={handlePurchase} 
+    handleRestore={handleRestore}
+    isLoading={isLoading}
+    isSubscribed={isSubscribed}
+/>
             </div>
           } />
           

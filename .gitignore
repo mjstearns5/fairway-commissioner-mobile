@@ -18,3 +18,4 @@ Thumbs.db
 server/node_modules
 Build
 stripe
+android/app/upload-keystore.jks
