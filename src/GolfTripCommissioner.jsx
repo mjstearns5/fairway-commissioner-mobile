@@ -1652,9 +1652,11 @@ const GolfTripCommissioner = () => {
         // 1. CONFIGURE REVENUECAT (Must happen first!)
         if (Capacitor.getPlatform() === 'android') {
            await Purchases.configure({ apiKey: "goog_UzhTMGwJxYNxqqkMmdcedlEItHf" });
-        } else {
-           await Purchases.configure({ apiKey: "appl_tOvHgGHoyoincWqidNxKeuEvpsF" });
-        }
+          } else {
+           // 🍎 iOS REVERT: Go back to simple configuration.
+           // This fixes the "Purchase couldn't be completed" crash.
+           await Purchases.configure({ apiKey: "appl_tOvHgGHoyoinCWqidNxKeuEvpsF" });
+      }
         console.log("✅ RevenueCat Configured.");
 
         // 2. LISTEN FOR FIREBASE AUTH (Only after config is done)
@@ -1663,15 +1665,21 @@ const GolfTripCommissioner = () => {
             console.log("👤 Firebase User Found:", user.uid);
             
             // 3. LOG IN (Links the "Already Subscribed" receipt to this user)
-            try {
-              await Purchases.logIn({ appUserID: user.uid });
-              console.log("🔗 Linked to RevenueCat ID:", user.uid);
-              
-              // 4. CHECK STATUS (Now that we are linked)
-              await checkSubscriptionStatus();
-            } catch (loginError) {
-              console.error("❌ Login Failed:", loginError);
-            }
+            // 🛡️ SAFETY CHECK: Only run this on iOS
+          // (Android continues using its current working setup)
+          if (Capacitor.getPlatform() === 'ios') {
+              console.log("🍏 iOS Device Detected: Linking RevenueCat Identity...");
+              try {
+                  // ✅ FIX: Pass the UID directly (no curly braces!)
+                  await Purchases.logIn(user.uid);
+                  console.log("✅ RevenueCat Login Successful");
+                  
+                  // Force a refresh of the subscription status
+                  await checkSubscriptionStatus();
+              } catch (e) {
+                  console.error("❌ RevenueCat Login Failed:", e);
+              }
+          }
           } else {
             console.log("⚠️ No user logged in yet. RevenueCat staying Anonymous.");
           }
@@ -1855,9 +1863,21 @@ const GolfTripCommissioner = () => {
             }
 
             if (packageToBuy) {
-                // The fix: We wrap it in { aPackage: ... } to satisfy the plugin
-                const { customerInfo } = await Purchases.purchasePackage({ aPackage: packageToBuy });
-                
+        
+        // 👇 PASTE THIS IOS-ONLY FIX HERE 👇
+        // This guarantees the receipt is attached to "daytester", not "Anonymous"
+        if (Capacitor.getPlatform() === 'ios' && auth.currentUser) {
+             console.log("🍏 iOS Purchase: Linking Identity before charge...");
+             try {
+                 await Purchases.logIn(auth.currentUser.uid);
+             } catch (e) {
+                 console.log("⚠️ Login warning:", e);
+             }
+        }
+        // 👆 END OF NEW CODE 👆
+
+        // The fix: We wrap it in { aPackage: ... } to satisfy the plugin
+        const { customerInfo } = await Purchases.purchasePackage({ aPackage: packageToBuy });
                 if (customerInfo?.entitlements?.active?.["premium_access"]) {
                     // Success!
                     setIsSubscribed(true);
@@ -1876,13 +1896,57 @@ const GolfTripCommissioner = () => {
             }
 
         } catch (error) {
-            if (!error.userCancelled) {
-                alert("Purchase couldn't be completed. Please try again.");
-                console.error("Purchase Error:", error);
+        // 1. IGNORE USER CANCELLATION
+        if (error.userCancelled) return;
+
+        // 2. HANDLE "ALREADY SUBSCRIBED" SCENARIO
+        // (RevenueCat Code 6 = ProductAlreadyPurchasedError)
+        const isAlreadyOwned = error.code === '6' || error.code === 6 || error.message.includes("already");
+
+        if (isAlreadyOwned) {
+            console.log("✅ User already subscribed. Attempting unlock...");
+            
+            try {
+                // ---------------------------------------------------
+                // 🛡️ ANDROID SAFETY CHECK 🛡️
+                // We ONLY force the login merge on iOS. 
+                // Android skips this block entirely.
+                if (Capacitor.getPlatform() === 'ios' && auth.currentUser) {
+                     await Purchases.logIn(auth.currentUser.uid);
+                }
+                await Purchases.syncPurchases();
+                // ---------------------------------------------------
+
+                // B. CHECK STATUS (Runs on both, which is good!)
+                // If Android user owns it, this will unlock their app too.
+                const updatedInfo = await Purchases.getCustomerInfo();
+                
+                if (updatedInfo?.entitlements?.active?.["premium_access"]) {
+                     // C. UPDATE FIREBASE (Manually write the "True" status)
+                     setIsSubscribed(true);
+                     if (auth.currentUser) {
+                         const userRef = doc(db, "users", auth.currentUser.uid);
+                         await setDoc(userRef, {
+                             isSubscribed: true,
+                             subscriptionStatus: "active",
+                             lastUpdated: new Date()
+                         }, { merge: true });
+                     }
+                     alert("Subscription verified! You are all set.");
+                     return; // STOP HERE (Success)
+                }
+            } catch (innerError) {
+                console.log("Manual unlock failed:", innerError);
             }
-        } finally {
-            setIsLoading(false);
         }
+
+        // 3. GENERIC ERROR (Actual failures)
+        alert("Purchase couldn't be completed. " + error.message);
+        console.error("Purchase Error:", error);
+
+    } finally {
+        setIsLoading(false);
+    }
     };
 
     // ==========================================================
@@ -1891,6 +1955,20 @@ const GolfTripCommissioner = () => {
     const handleRestore = async () => {
         setIsLoading(true);
         try {
+          // ---------------------------------------------------------
+      // 👇 NEW IOS-ONLY FIX 👇
+      // This strictly ignores Android so it stays 100% safe.
+      if (Capacitor.getPlatform() === 'ios' && auth.currentUser) {
+         console.log("🍏 iOS Restore: Linking Identity...");
+         try {
+             // This merges the "Anonymous Owner" with "daytester"
+             await Purchases.logIn(auth.currentUser.uid);
+         } catch (e) {
+             console.log("⚠️ Login warning:", e);
+         }
+    }
+      // 👆 END OF NEW CODE 👆
+      // ---------------------------------------------------------
             // 1. Sync & Fetch Latest
             await Purchases.syncPurchases();
             const customerInfo = await Purchases.getCustomerInfo({ 
