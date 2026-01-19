@@ -278,17 +278,7 @@ const UserProfileView = ({ user, isSubscribed, onSuccess, handlePurchase, handle
                   </div>
                 )}
               </div>
-              {/* Show Subscribe Button only if NOT subscribed */}
-{!isSubscribed && (
-    <div className="mt-4">
-        <SubscribeButton 
-    handlePurchase={handlePurchase} 
-    handleRestore={handleRestore}
-    isLoading={isLoading}
-    isSubscribed={isSubscribed}
-/>
-    </div>
-)}
+              
               {/* Manage Subscription Button (Clean Version) */}
             {isSubscribed && (
                 <div className="mt-4 pt-4 border-t border-slate-200 flex justify-end">
@@ -717,7 +707,7 @@ const Layout = ({ children, view, setView, user, role, setRole, tripId, setTripI
 
 // 8. Trip Setup View
 // 8. Trip Setup View (Updated with Subscription Lock)
-const TripSetupView = ({ setTripId, setRole, setView, user, isSubscribed, onSuccess, handlePurchase, handleRestore, isLoading }) => {
+const TripSetupView = ({ setActiveTab, setTripId, setRole, setView, user, isSubscribed, onSuccess, handlePurchase, handleRestore, isLoading }) => {
   const [joinCode, setJoinCode] = React.useState('');
 
   const finalizeCreateTrip = async () => {
@@ -768,6 +758,8 @@ const TripSetupView = ({ setTripId, setRole, setView, user, isSubscribed, onSucc
     // 3. Save to Memory -> EVERYONE IS COMMISSIONER
     localStorage.setItem("activeTripId", joinCode);
     localStorage.setItem("userRole", "commissioner"); // <--- CHANGE THIS (Was 'player')
+    // 4. Redirect to Dashboard
+if (setView) setView('dashboard');
   };
 
   return (
@@ -1670,15 +1662,16 @@ const GolfTripCommissioner = () => {
           if (Capacitor.getPlatform() === 'ios') {
               console.log("🍏 iOS Device Detected: Linking RevenueCat Identity...");
               try {
-                  // ✅ FIX: Pass the UID directly (no curly braces!)
-                  await Purchases.logIn(user.uid);
-                  console.log("✅ RevenueCat Login Successful");
-                  
-                  // Force a refresh of the subscription status
-                  await checkSubscriptionStatus();
-              } catch (e) {
-                  console.error("❌ RevenueCat Login Failed:", e);
-              }
+                        
+                        // 2. THE FIX: Wrap the ID in curly braces { appUserID: ... }
+                        // This satisfies the "Must provide appUserID" requirement.
+                        await Purchases.logIn({ appUserID: user.uid });
+                        // 4. REFRESH
+                        await checkSubscriptionStatus();
+                    } catch (e) {
+                        // 5. ALERT ERROR
+                        console.error("RevenueCat Login Failed:", e);
+                    }
           }
           } else {
             console.log("⚠️ No user logged in yet. RevenueCat staying Anonymous.");
@@ -1780,59 +1773,50 @@ const GolfTripCommissioner = () => {
 
 
   // --- STEP 1.5: CHECK STATUS & UPDATE FIREBASE (FORCE SYNC VERSION) ---
+    // --- REPLACEMENT FUNCTION: READS DIRECTLY FROM FIREBASE ---
     const checkSubscriptionStatus = async () => {
         try {
-            console.log("🔄 Checking RevenueCat status (Force Fetch)...");
+            console.log("🔍 Reading Subscription from Firebase Database...");
             
-            // 1. Force the app to sync with the RevenueCat Server
-            // This wakes up the cache if it's stale
-            try {
-                await Purchases.syncPurchases(); 
-            } catch (e) {
-                console.log("Sync warning (ignore if offline):", e);
-            }
+            if (!auth.currentUser) return;
 
-            // 2. Get the absolute latest info (Bypassing Cache)
-            const customerInfo = await Purchases.getCustomerInfo({ 
-                fetchPolicy: "FETCH_CURRENT" 
-            });
+            // 1. Get the latest data from Firebase (ignoring the app cache)
+            const userRef = doc(db, "users", auth.currentUser.uid);
+            const userSnap = await getDoc(userRef);
 
-            // 3. DEBUG ALERT: Let's see exactly what the phone sees!
-            alert("DEBUG DATA:\n" + JSON.stringify(customerInfo.entitlements.active, null, 2));
+            if (userSnap.exists()) {
+                const data = userSnap.data();
+                console.log("📄 Firebase Data:", data);
 
-            // Check if the specific entitlement exists
-            const isPaid = customerInfo?.entitlements?.active?.['premium_access'] !== undefined;
+                // 2. CHECK THE ENTITLEMENT DATE (The logic you asked for)
+                // We look inside: entitlements -> premium_access -> expires_date
+                const premium = data?.entitlements?.premium_access;
+                const expiresDate = premium?.expires_date ? new Date(premium.expires_date) : null;
+                const now = new Date();
 
-            if (isPaid) {
-                console.log("✅ User is subscribed (RevenueCat confirmed).");
-                setIsSubscribed(true);
+                // Check: Does the date exist AND is it in the future?
+                const isValid = expiresDate && expiresDate > now;
 
-                // --- FIREBASE UPDATE ---
-                const currentUser = auth.currentUser;
-                if (currentUser) {
-                    console.log(`Saving status to Firebase for: ${currentUser.email}`);
-                    try {
-                        const userRef = doc(db, "users", currentUser.uid);
-                        // Using setDoc with merge=true is safer to prevent errors if doc doesn't exist
-                        await setDoc(userRef, {
-                            isSubscribed: true,
-                            subscriptionStatus: "active",
-                            lastUpdated: new Date()
-                        }, { merge: true });
-                        console.log("🔥 Firebase Updated Successfully!");
-                    } catch (firebaseError) {
-                        console.error("❌ Firebase Update Failed:", firebaseError);
+                if (isValid) {
+                    console.log("✅ VALID SUBSCRIPTION CONFIRMED BY DATE!");
+                    setIsSubscribed(true);
+                    localStorage.setItem('golfAppSubscribed', 'true');
+
+                    // 3. Housekeeping: Update the simple boolean if it's currently false
+                    if (data.isSubscribed !== true) {
+                        await setDoc(userRef, { isSubscribed: true }, { merge: true });
                     }
+                } else {
+                    console.log("❌ Subscription expired or not found in database.");
+                    setIsSubscribed(false);
+                    localStorage.removeItem('golfAppSubscribed');
                 }
-            } else {
-                console.log("🔒 User is NOT subscribed locally.");
-                setIsSubscribed(false);
             }
-
         } catch (error) {
-            console.error("❌ Error checking subscription:", error);
+            console.error("⚠️ Error checking subscription:", error);
         }
-        };
+    };
+    // --- END OF REPLACEMENT ---
 
    // ==========================================================
     // 1. PRODUCTION PURCHASE FUNCTION
@@ -1977,7 +1961,10 @@ const GolfTripCommissioner = () => {
             
             // 2. Check for Entitlement (No Alerting Raw JSON anymore)
             if (customerInfo?.entitlements?.active?.["premium_access"]) {
-                 setIsSubscribed(true); 
+                 setIsSubscribed(true);
+                 // ---------------------------------------------------------
+      // ⚡️ NEW IOS DATABASE FIX (Guaranteed iOS Only)
+      // --------------------------------------------------------- 
                  
                  if (auth.currentUser) {
                      const userRef = doc(db, "users", auth.currentUser.uid);
