@@ -196,7 +196,7 @@ const AuthScreen = ({ onLogin }) => {
 };
 
 // 2. User Profile View
-const UserProfileView = ({ user, isSubscribed, onSuccess, handlePurchase, handleRestore, isLoading }) => {
+const UserProfileView = ({ user, isSubscribed, onSuccess, handlePurchase, handleRestore, isLoading, handleLogout }) => {
   const [resetSent, setResetSent] = useState(false);
   const [cancelling, setCancelling] = useState(false);
 
@@ -226,7 +226,7 @@ const UserProfileView = ({ user, isSubscribed, onSuccess, handlePurchase, handle
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 py-2 border-b border-slate-100">
               <div>
                 <label className="block text-xs text-slate-500 mb-1">Email Address</label>
-                <div className="font-medium text-slate-800">{user.email}</div>
+                <div className="font-medium text-slate-800">{user?.email}</div>
               </div>
             </div>
 
@@ -583,7 +583,7 @@ const Layout = ({ children, view, setView, user, role, setRole, tripId, setTripI
           {/* Logo */}
           <div className="flex items-center gap-2">
             <Flag className="w-6 h-6 text-yellow-400 fill-current" />
-            <h1 className="text-xl font-bold tracking-tight">Fairway Commish</h1>
+            <h1 className="text-xl font-bold tracking-tight">Fairway Commish </h1>
           </div>
 
           {/* Right Side Actions */}
@@ -711,40 +711,51 @@ const TripSetupView = ({ setActiveTab, setTripId, setRole, setView, user, isSubs
   const [joinCode, setJoinCode] = React.useState('');
 
   const finalizeCreateTrip = async () => {
-    // 1. The Gatekeeper Check
-    if (!isSubscribed) {
-      alert("Please subscribe to create a trip!");
-      return;
-    }
+        if (!isSubscribed) {
+            alert("Please subscribe to create a trip!");
+            return;
+        }
 
-    // 2. Generate Code
-    const newCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+        try {
+            // 1. Generate Code
+            const newCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+            
+            // 2. Create Trip in Database
+            await setDoc(doc(db, 'trips', newCode), {
+                name: "My Golf Trip",
+                commissionerId: user?.uid || auth.currentUser?.uid,
+                createdAt: new Date().toISOString(),
+                status: "active",
+                joinCode: newCode
+            });
 
-    try {
-      // 3. Save to Firebase
-      await addDoc(collection(db, "trips"), {
-        code: newCode,
-        commissionerId: user?.uid || auth.currentUser?.uid, 
-        name: "My Golf Trip",
-        createdAt: new Date(),
-        status: "active"
-      });
+            console.log("✅ Trip Created:", newCode);
 
-      // 4. Update Screen
-      setTripId(newCode);
-      setRole('commissioner');
+            // 3. Save to User Profile
+            const uid = user?.uid || auth.currentUser?.uid;
+            if (uid) {
+                await setDoc(doc(db, 'users', uid), {
+                    activeTripId: newCode, 
+                    role: 'commissioner',
+                    isSubscribed: true
+                }, { merge: true });
+            }
 
-      // 5. Save to Memory (Both ID and Role)
-      localStorage.setItem("activeTripId", newCode); 
-      localStorage.setItem("userRole", "commissioner"); // <--- The Important New Line
-
-      alert(`Trip Created! Code: ${newCode}`);
-
-    } catch (error) {
-      console.error("Error creating trip:", error);
-      alert("Error saving: " + error.message);
-    }
-  };
+            // 4. Update Local State
+            setTripId(newCode);
+            setRole('commissioner');
+            
+            // 5. AUTO-REDIRECT (Restored)
+            // Sending you to the Dashboard immediately.
+            if (setView) {
+                setView('dashboard');
+            }
+            
+        } catch (error) {
+            console.error("Error creating trip:", error);
+            alert("Failed to create trip: " + error.message);
+        }
+    };
 
   const handleJoinTrip = () => {
     // 1. Checks
@@ -940,7 +951,8 @@ const RosterView = ({ players, addPlayer, deletePlayer, updatePlayer, role, team
 };
 
 // 11. Tournament Engine
-const TournamentView = ({ players, matches, updateMatch, addMatch, deleteMatch, role, teamNames, updateTeamNames }) => {
+// ✅ Added = [] to players and matches to prevent crashes
+const TournamentView = ({ players = [], matches = [], updateMatch, addMatch, deleteMatch, role, teamNames = { red: 'Red Team', blue: 'Blue Team' }, updateTeamNames }) => {
   const [activeTab, setActiveTab] = useState('matchups');
   const [isEditingNames, setIsEditingNames] = useState(false);
   const [tempNames, setTempNames] = useState(teamNames);
@@ -956,7 +968,7 @@ const TournamentView = ({ players, matches, updateMatch, addMatch, deleteMatch, 
     return { red, blue };
   }, [matches]);
 
-  const isCommish = role === 'commissioner';
+  const isCommish = role === 'commissioner' || localStorage.getItem('userRole') === 'commissioner';
 
   const handleSaveNames = () => {
     updateTeamNames(tempNames);
@@ -1154,7 +1166,10 @@ const TournamentView = ({ players, matches, updateMatch, addMatch, deleteMatch, 
 };
 
 // 13. Logistics Hub
-const LogisticsView = ({ itinerary, addItinerary, deleteItinerary, role }) => {
+const LogisticsView = ({ itinerary = [], addItinerary, deleteItinerary, role }) => {
+    
+    // ✅ PERMISSION FIX: Unlock the 'Add Event' form immediately
+    const isCommish = role === 'commissioner' || localStorage.getItem('userRole') === 'commissioner';
   const [form, setForm] = useState({ type: 'Golf', time: '', title: '', location: '' });
 
   const getIcon = (type) => {
@@ -1188,7 +1203,7 @@ const LogisticsView = ({ itinerary, addItinerary, deleteItinerary, role }) => {
         <h2 className="text-2xl font-bold text-white">Trip Itinerary</h2>
       </div>
 
-      {role === 'commissioner' && (
+      {isCommish && (
         <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
           <h3 className="text-sm font-semibold text-slate-500 uppercase mb-4">Add Event</h3>
           <form onSubmit={handleAdd} className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -1260,46 +1275,76 @@ const LogisticsView = ({ itinerary, addItinerary, deleteItinerary, role }) => {
 };
 
 // 14. The Ledger (Expenses & Betting)
-const LedgerView = ({ players, expenses, bets, addExpense, addBet, deleteItem, role }) => {
-  const [view, setView] = useState('summary'); // summary, addExpense, addBet
-  const [expenseForm, setExpenseForm] = useState({ payerId: '', amount: '', description: '' });
-  const [betForm, setBetForm] = useState({ winnerId: '', loserId: '', amount: '', description: '' });
+// ✅ FINAL LEDGER FIX: Correctly defines Data, Permissions, and State
+const LedgerView = ({ players: rawPlayers, expenses: rawExpenses, bets: rawBets, addExpense, addBet, deleteItem, role }) => {
+    
+   // 1. GHOST BUSTER DATA CLEANING 👻
+    // This removes "null" items inside the lists, which stops the "players.find" crash.
+    const players = (Array.isArray(rawPlayers) ? rawPlayers : []).filter(p => p && p.id);
+    const expenses = (Array.isArray(rawExpenses) ? rawExpenses : []).filter(e => e && e.amount);
+    const bets = (Array.isArray(rawBets) ? rawBets : []).filter(b => b && b.amount);
+
+    // 2. PERMISSION FIX (Unlocks Buttons)
+    const isCommish = role === 'commissioner' || localStorage.getItem('userRole') === 'commissioner';
+
+    // 3. STATE SETUP (Restores the Forms so they don't crash)
+    const [view, setView] = useState('summary'); 
+    const [expenseForm, setExpenseForm] = useState({ payerId: '', amount: '', description: '' });
+    const [betForm, setBetForm] = useState({ winnerId: '', loserId: '', amount: '', description: '' });
+
+    // ... The code continues below with 'const settlement = ...'
 
   // Calculate Net Settlement
-  const settlement = useMemo(() => {
-    const balances = {};
-    players.forEach(p => balances[p.id] = 0);
+  // ✅ SAFE MATH: Prevents crashes & Returns the Format your app expects
+    const settlement = useMemo(() => {
+        const balances = {};
+        
+        // 1. Setup Balances (Check if player exists)
+        players.forEach(p => {
+            if (p && p.id) balances[p.id] = 0; 
+        });
 
-    // 1. Shared Expenses
-    const totalExpenses = expenses.reduce((sum, e) => sum + parseFloat(e.amount), 0);
-    const perPerson = totalExpenses / (players.length || 1);
-    
-    expenses.forEach(e => {
-      if(balances[e.payerId] !== undefined) {
-        balances[e.payerId] += parseFloat(e.amount); // They paid this much
-      }
-    });
-    
-    // Subtract fair share from everyone
-    players.forEach(p => {
-      balances[p.id] -= perPerson;
-    });
+        // 2. Shared Expenses (Check if amounts are valid numbers)
+        const validExpenses = expenses.filter(e => e && e.amount);
+        // Safety: ensure amount is a number, default to 0
+        const totalExpenses = validExpenses.reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
+        
+        // Prevent "Divide by Zero" crash
+        const activePlayerCount = Object.keys(balances).length || 1; 
+        const perPerson = totalExpenses / activePlayerCount;
 
-    // 2. Betting Adjustments
-    bets.forEach(b => {
-      const amt = parseFloat(b.amount);
-      if(balances[b.winnerId] !== undefined) balances[b.winnerId] += amt;
-      if(balances[b.loserId] !== undefined) balances[b.loserId] -= amt;
-    });
+        // 3. Debits (Subtract per-person cost from everyone)
+        Object.keys(balances).forEach(id => {
+            balances[id] -= perPerson;
+        });
 
-    return Object.entries(balances)
-      .map(([id, amount]) => ({ 
-        id, 
-        name: players.find(p => p.id === id)?.name || 'Unknown', 
-        amount 
-      }))
-      .sort((a,b) => b.amount - a.amount);
-  }, [players, expenses, bets]);
+        // 4. Credits (Add back who paid)
+        validExpenses.forEach(e => {
+            if (e.payerId && balances.hasOwnProperty(e.payerId)) {
+                balances[e.payerId] += (parseFloat(e.amount) || 0);
+            }
+        });
+
+        // 5. Bets (Check winner/loser existence)
+        bets.forEach(b => {
+             if (b && b.winnerId && b.loserId && b.amount) {
+                 const amt = parseFloat(b.amount) || 0;
+                 // Only update if players actually exist in our list
+                 if (balances.hasOwnProperty(b.winnerId)) balances[b.winnerId] += amt;
+                 if (balances.hasOwnProperty(b.loserId)) balances[b.loserId] -= amt;
+             }
+        });
+
+        // 6. FORMATTING: Convert to the List your app expects (CRITICAL STEP)
+        return Object.entries(balances)
+            .map(([id, amount]) => ({
+                id,
+                name: players.find(p => p.id === id)?.name || 'Unknown',
+                amount
+            }))
+            .sort((a,b) => b.amount - a.amount);
+
+    }, [players, expenses, bets]);
 
   // Calculate Suggested Payments (Who pays Whom)
   const payments = useMemo(() => {
@@ -1468,7 +1513,7 @@ const LedgerView = ({ players, expenses, bets, addExpense, addBet, deleteItem, r
               </div>
               <div className="flex items-center gap-4">
                 <span className="font-mono font-bold text-slate-700">${e.amount}</span>
-                {role === 'commissioner' && (
+                {isCommish && (
                   <button onClick={() => deleteItem('expenses', e.id)} className="text-slate-300 hover:text-red-500"><Trash2 className="w-4 h-4"/></button>
                 )}
               </div>
@@ -1500,10 +1545,36 @@ const LedgerView = ({ players, expenses, bets, addExpense, addBet, deleteItem, r
 };
 
 // 15. Dashboard
-const Dashboard = ({ players, matches, itinerary, setView, role, teamNames }) => {
-  const nextEvent = itinerary
-    .filter(i => new Date(i.time) > new Date())
-    .sort((a,b) => new Date(a.time) - new Date(b.time))[0];
+// ✅ RESTORED DASHBOARD: Shows Full UI even with 0 data
+// ✅ ROBUST FIX: We rename the incoming prop to 'rawTeamNames' to sanitize it
+const Dashboard = ({ players = [], matches = [], itinerary = [], setView, role, teamNames: rawTeamNames, handleLogout }) => {
+    
+    // 1. SANITIZE TEAM NAMES (The "Null" Killer)
+    // This forces valid names even if the database sends 'null' or 'undefined'.
+    const teamNames = rawTeamNames || { red: 'Red Team', blue: 'Blue Team' };
+
+    // ... The rest of your code continues below ...
+    
+    // 1. Safety Check: Ensure lists are Arrays (Prevents "filter of undefined" crash)
+    const validItinerary = Array.isArray(itinerary) ? itinerary : [];
+    const validPlayers = Array.isArray(players) ? players : [];
+    
+    // 2. Safe 'Next Event' Logic
+    // If itinerary is empty, nextEvent becomes null (Logic handles "No upcoming events" text)
+    const upcomingEvents = validItinerary
+        .filter(i => i.time && new Date(i.time) > new Date())
+        .sort((a,b) => new Date(a.time) - new Date(b.time));
+
+    const nextEvent = upcomingEvents.length > 0 ? upcomingEvents[0] : null;
+
+    // 3. Find the Invite Code (Safe Lookup)
+    // Checks multiple storage spots so the Purple Card always has a code.
+    const rawId = localStorage.getItem('activeTripId');
+    const localUser = JSON.parse(localStorage.getItem('golfAppUser') || '{}');
+    // Display Code: Defaults to "LOADING" if missing, to prevent crash
+    const displayCode = rawId || localUser?.lastActiveTripId || "LOADING";
+
+    // --- NO EARLY EXITS! We let the Real UI render below ---
 
   return (
     <div className="space-y-6">
@@ -1634,6 +1705,39 @@ const Dashboard = ({ players, matches, itinerary, setView, role, teamNames }) =>
 
 // --- Main App Container ---
 const GolfTripCommissioner = () => {
+  const handleLogin = async (firstArg, secondArg) => {
+        // 1. CHECK FOR RECEIPT (The "Fast Lane")
+        if (firstArg && firstArg.uid) {
+            console.log("✅ User Receipt Found. Forcing Update...");
+            
+            // ⚡ FORCE THE APP TO UPDATE INSTANTLY
+            setUser(firstArg); 
+            
+            return;
+        }
+
+        // 2. MANUAL LOGIN (The "Slow Lane")
+        try {
+            let email = firstArg;
+            let password = secondArg;
+
+            // Unpack if needed
+            if (typeof firstArg === 'object' && firstArg !== null) {
+                email = firstArg.email;
+                password = firstArg.password;
+            }
+
+            console.log("🔐 Logging in manually as:", email);
+            const userCredential = await signInWithEmailAndPassword(auth, email, password);
+            
+            // ⚡ FORCE THE APP TO UPDATE INSTANTLY
+            setUser(userCredential.user);
+
+        } catch (error) {
+             console.error("Login Error:", error);
+             alert("Login Failed: " + error.message);
+        }
+    };
   // --- MASTER REVENUECAT SETUP (Config + Login in Order) ---
   useEffect(() => {
     const initMasterSequence = async () => {
@@ -1660,18 +1764,19 @@ const GolfTripCommissioner = () => {
             // 🛡️ SAFETY CHECK: Only run this on iOS
           // (Android continues using its current working setup)
           if (Capacitor.getPlatform() === 'ios') {
-              console.log("🍏 iOS Device Detected: Linking RevenueCat Identity...");
+              console.log(" iOS Device Detected: Linking RevenueCat Identity...");
               try {
-                        
-                        // 2. THE FIX: Wrap the ID in curly braces { appUserID: ... }
-                        // This satisfies the "Must provide appUserID" requirement.
-                        await Purchases.logIn({ appUserID: user.uid });
-                        // 4. REFRESH
-                        await checkSubscriptionStatus();
-                    } catch (e) {
-                        // 5. ALERT ERROR
-                        console.error("RevenueCat Login Failed:", e);
-                    }
+                  // THE FIX: Remove the curly braces! Just pass the UID.
+                  await Purchases.logIn(user.uid); 
+
+                  await Purchases.restorePurchases();
+                  
+                  // 4. REFRESH: Now that the user is linked, check the entitlement
+                  await checkSubscriptionStatus();
+                  
+              } catch (e) {
+                  console.error("⚠️ RevenueCat Login Failed:", e);
+              }
           }
           } else {
             console.log("⚠️ No user logged in yet. RevenueCat staying Anonymous.");
@@ -1776,44 +1881,27 @@ const GolfTripCommissioner = () => {
     // --- REPLACEMENT FUNCTION: READS DIRECTLY FROM FIREBASE ---
     const checkSubscriptionStatus = async () => {
         try {
-            console.log("🔍 Reading Subscription from Firebase Database...");
+            console.log("🔄 Checking Subscription...");
+            const customerInfo = await Purchases.getCustomerInfo();
             
-            if (!auth.currentUser) return;
+            // 1. Calculate the Status (We'll name the variable 'isSubscribed' now)
+            const isSubscribed = typeof customerInfo.entitlements.active['Commissioner Club'] !== "undefined" 
+                              || typeof customerInfo.entitlements.active['fairway_commish_annual'] !== "undefined";
 
-            // 1. Get the latest data from Firebase (ignoring the app cache)
-            const userRef = doc(db, "users", auth.currentUser.uid);
-            const userSnap = await getDoc(userRef);
+            console.log("💎 Subscription Status:", isSubscribed ? "ACTIVE" : "INACTIVE");
+            
+            // 2. Update Local App
+            setIsSubscribed(isSubscribed);
 
-            if (userSnap.exists()) {
-                const data = userSnap.data();
-                console.log("📄 Firebase Data:", data);
-
-                // 2. CHECK THE ENTITLEMENT DATE (The logic you asked for)
-                // We look inside: entitlements -> premium_access -> expires_date
-                const premium = data?.entitlements?.premium_access;
-                const expiresDate = premium?.expires_date ? new Date(premium.expires_date) : null;
-                const now = new Date();
-
-                // Check: Does the date exist AND is it in the future?
-                const isValid = expiresDate && expiresDate > now;
-
-                if (isValid) {
-                    console.log("✅ VALID SUBSCRIPTION CONFIRMED BY DATE!");
-                    setIsSubscribed(true);
-                    localStorage.setItem('golfAppSubscribed', 'true');
-
-                    // 3. Housekeeping: Update the simple boolean if it's currently false
-                    if (data.isSubscribed !== true) {
-                        await setDoc(userRef, { isSubscribed: true }, { merge: true });
-                    }
-                } else {
-                    console.log("❌ Subscription expired or not found in database.");
-                    setIsSubscribed(false);
-                    localStorage.removeItem('golfAppSubscribed');
-                }
+            // 3. Update Firebase (Key matches Variable)
+            if (user) {
+                await updateDoc(doc(db, 'users', user.uid), {
+                    isSubscribed: isSubscribed 
+                });
             }
+
         } catch (error) {
-            console.error("⚠️ Error checking subscription:", error);
+            console.error("Error checking subscription:", error);
         }
     };
     // --- END OF REPLACEMENT ---
@@ -2079,39 +2167,6 @@ const GolfTripCommissioner = () => {
   useEffect(() => {
     localStorage.setItem('golfAppSubscribed', isSubscribed);
   }, [isSubscribed]);
-// 3. Check if returning from Stripe Success
-  // 3. Check if returning from Stripe Success (AND SAVE TO DB)
-  useEffect(() => {
-    const handleStripeSuccess = async () => {
-      // Only run if we are on the success page
-      if (window.location.pathname === '/success') {
-        
-        // A. Update Local State (Immediate Feedback)
-        setIsSubscribed(true);
-        localStorage.setItem('golfAppSubscribed', 'true');
-
-        // B. Update Firebase Database (Permanent Record)
-        if (user) {
-          try {
-            const userRef = doc(db, "users", user.uid);
-            await setDoc(userRef, { isSubscribed: true }, { merge: true });
-            console.log("Stripe payment saved to database!");
-          } catch (error) {
-            console.error("Error saving Stripe payment:", error);
-          }
-        }
-
-        // C. FORCE REFRESH to Dashboard (This fixes the "Success Screen" issue)
-        // This makes the app reload immediately so the unlocked features appear.
-        window.location.href = '/'; 
-      }
-    };
-    
-    // We add a tiny check to wait for 'user' to be ready
-    if (user || window.location.pathname === '/success') {
-      handleStripeSuccess();
-    }
-  }, [user]);
 
   // 4. Restore Trip Context (SAFER VERSION)
   useEffect(() => {
@@ -2152,6 +2207,75 @@ const GolfTripCommissioner = () => {
   const [bets, setBets] = useState([]);
   const [teamNames, setTeamNames] = useState({ red: 'Red Team', blue: 'Blue Team' });
   const [messages, setMessages] = useState([]); // Added state for messages
+
+  // --- 📡 DATA RESTORATION (Updated for Commissioners) ---
+    
+    // 1. Listen for USER PROFILE
+    useEffect(() => {
+        if (!user) return;
+        
+        console.log("👤 Listening for Commissioner Profile:", user.uid);
+        const unsub = onSnapshot(doc(db, 'users', user.uid), (docSnapshot) => {
+            if (docSnapshot.exists()) {
+                const data = docSnapshot.data();
+                console.log("🎟️ Active Trip ID:", data.activeTripId);
+                
+                // Update State
+                setTripId(data.activeTripId);
+                
+                // ✅ ROLE FIX: Always set as Commissioner (since this is the Commish App)
+                setRole(data.role || 'commissioner');
+                
+                // Subscription Check
+                setIsSubscribed(!!data.isSubscribed);
+            }
+        });
+        return () => unsub();
+    }, [user]);
+
+    // 2. Listen for TRIP DATA (Players, Matches, Itinerary)
+    useEffect(() => {
+        if (!tripId) return;
+
+        console.log("📡 Connecting to Trip Database:", tripId);
+        setIsLoading(true);
+
+        // A. Fetch Players
+        const unsubPlayers = onSnapshot(collection(db, 'trips', tripId, 'players'), (snapshot) => {
+            const list = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            console.log("✅ Players Loaded:", list.length);
+            setPlayers(list);
+        });
+
+        // B. Fetch Matches
+        const unsubMatches = onSnapshot(collection(db, 'trips', tripId, 'matches'), (snapshot) => {
+            const list = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            setMatches(list);
+        });
+
+        // C. Fetch Itinerary
+        const unsubItinerary = onSnapshot(collection(db, 'trips', tripId, 'itinerary'), (snapshot) => {
+            const list = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            list.sort((a, b) => new Date(a.date) - new Date(b.date));
+            setItinerary(list);
+            setIsLoading(false); 
+        });
+
+        // D. Fetch Bets (For Ledger)
+        const unsubBets = onSnapshot(collection(db, 'trips', tripId, 'bets'), (snapshot) => {
+            const list = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            setBets(list);
+        });
+
+        // Cleanup
+        return () => {
+            unsubPlayers();
+            unsubMatches();
+            unsubItinerary();
+            unsubBets();
+        };
+    }, [tripId]);
+    // ---------------------------------------------
   // --- NEW: Fetch Players from Firestore ---
   const fetchPlayers = async () => {
     if (!tripId) return; // Don't fetch if we don't have a trip code yet
@@ -2307,16 +2431,37 @@ useEffect(() => {
     return () => unsubscribe();
   }, [tripId]);
 // (Line 1755) const handleLogin = ...
-  const handleLogin = (mockUser) => {
-    setUser(mockUser);
-  };
 
   const handleLogout = async () => {
-    setUser(null);
-    setTripId(null);
-    setView('setup');
-    setIsSubscribed(false);
-  };
+    // 1. Force UI Reset IMMEDIATELY (Don't wait for server)
+    try {
+        console.log("⚠️ Attempting Logout...");
+        
+        // Try Firebase (But don't let it stop us if it fails)
+        try {
+            await signOut(auth);
+        } catch (e) {
+            console.error("Firebase logout failed (ignoring):", e);
+        }
+
+        // Try RevenueCat (But don't let it stop us if it fails)
+        try {
+            await Purchases.logOut();
+        } catch (e) {
+             console.error("RevenueCat logout failed (ignoring):", e);
+        }
+
+    } catch (error) {
+        alert("Logout Warning: " + error.message);
+    } finally {
+        // 2. NUKE EVERYTHING (This runs no matter what)
+        setUser(null);
+        setTripId(null);
+        setView('setup');
+        setIsSubscribed(false);
+        console.log("✅ Force Logout Complete");
+    }
+};
 
   // --- Mock Actions (Local State) ---
   const addPlayer = async (data) => {
@@ -2544,77 +2689,6 @@ useEffect(() => {
       alert("Save Failed: " + error.message);
     }
   };
-// --- HANDLE PAYMENT SUCCESS ---
-  const handleSubscriptionSuccess = async () => {
-    // 1. Update App State immediately so user sees results
-    setIsSubscribed(true);
-    localStorage.setItem('golfAppSubscribed', 'true');
-    
-    // 2. Save to Firebase Database (Permanent)
-    if (user) {
-      try {
-        const userRef = doc(db, "users", user.uid);
-        await setDoc(userRef, { isSubscribed: true }, { merge: true });
-        console.log("Subscription saved to database!");
-      } catch (error) {
-        console.error("Error saving subscription:", error);
-      }
-    }
-  };
-  // --- NEW: SERVER-CONNECTED CHECKOUT ---
-  const openStripeCheckout = async () => {
-    if (!user || !user.email) return alert("Please sign in first.");
-
-    try {
-      // 1. Talk to your Render Server to get a custom session
-      const response = await fetch('https://fairway-commissioner-mobile-api.onrender.com/create-checkout-session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: user.email }),
-      });
-
-      const data = await response.json();
-
-      if (data.url) {
-        // 2. Open the specific session URL your server created
-        window.open(data.url, '_system');
-      } else {
-        alert("Error starting payment.");
-      }
-    } catch (error) {
-      console.error("Payment Error:", error);
-      alert("Could not connect to payment server.");
-    }
-  };
-  
-  // <--- PASTE HERE (Line 2262 approx) --->
-
-  // --- NEW: SERVER-CONNECTED PORTAL ---
-  const openStripePortal = async () => {
-    if (!user || !user.email) return;
-
-    try {
-      const response = await fetch('https://fairway-commissioner-mobile-api.onrender.com/create-portal-session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: user.email }),
-      });
-
-      const data = await response.json();
-
-      if (data.url) {
-        window.open(data.url, '_system');
-      } else {
-        alert("Could not load subscription settings.");
-      }
-    } catch (error) {
-      console.error("Portal Error:", error);
-      alert("Could not connect to server.");
-    }
-  };
-  if (!user) {
-    return <AuthScreen onLogin={handleLogin} />;
-  }
 
   let currentContent;
   if (view === 'setup') {
@@ -2624,7 +2698,7 @@ useEffect(() => {
          {!isSubscribed && (
            <div className="bg-slate-800 p-4 rounded-lg shadow border border-slate-700 text-white">
     <h3 className="font-bold text-lg mb-2 text-white">Subscription Status</h3>
-              {/* CHANGE THIS LINE: from handleSubscriptionSuccess to openStripeCheckout */}
+  
 <div className="mb-2">
   <SubscribeButton 
     handlePurchase={handlePurchase} 
@@ -2650,33 +2724,71 @@ useEffect(() => {
          />
       </div>
     );
-  }
-   else if (view === 'profile') {
-    currentContent = <UserProfileView 
-      user={user} 
-      isSubscribed={isSubscribed}
-      onSuccess={checkSubscriptionStatus}
-    />;
-  } else if (!tripId) {
-    currentContent = (
-      <RestrictedAccessView 
-        setView={setView} 
-        isSubscribed={isSubscribed} 
-      />
-    );
-  } else {
-    switch(view) {
-      case 'dashboard': currentContent = <Dashboard players={players} matches={matches} itinerary={itinerary} setView={setView} role={role} teamNames={teamNames} />; break;
-      case 'players': currentContent = <RosterView players={players} addPlayer={addPlayer} deletePlayer={deletePlayer} updatePlayer={updatePlayer} role={role} teamNames={teamNames} />; break;
-      case 'tournament': currentContent = <TournamentView players={players} matches={matches} updateMatch={updateMatch} addMatch={addMatch} deleteMatch={deleteMatch} role={role} teamNames={teamNames} updateTeamNames={updateTeamNames} />; break;
-      case 'messages': currentContent = <MessagesView messages={messages} addMessage={addMessage} user={user} />; break; 
-      case 'manage': currentContent = <ManageTripView />; break; 
-      case 'logistics': currentContent = <LogisticsView itinerary={itinerary} addItinerary={addItinerary} deleteItinerary={deleteItinerary} role={role} />; break;
-      case 'finance': currentContent = <LedgerView players={players} expenses={expenses} bets={bets} addExpense={addExpense} addBet={addBet} deleteItem={deleteLedgerItem} role={role} />; break;
-      default: currentContent = <Dashboard players={players} matches={matches} itinerary={itinerary} setView={setView} role={role} teamNames={teamNames} />;
-    }
-  }
+// REPLACE FROM LINE 2551 DOWN TO LINE 2571 WITH THIS:
 
+} else if (view === 'profile') {
+    // 1. FIX THE WHITE SCREEN (Pass the tools to the profile)
+    currentContent = <UserProfileView 
+        user={user}
+        isSubscribed={isSubscribed}
+        onSuccess={checkSubscriptionStatus}
+        handlePurchase={handlePurchase}  // <--- Added
+        handleRestore={handleRestore}    // <--- Added
+        handleLogout={handleLogout}      // <--- Added
+        isLoading={isLoading}            // <--- Added
+    />;
+
+} else if (!tripId) {
+    currentContent = (
+        <RestrictedAccessView 
+            setView={setView} 
+            isSubscribed={isSubscribed} 
+        />
+    );
+} else {
+    // 2. FIX THE SIGN OUT (Pass the tool to the Dashboard)
+    // ✅ FINAL SWITCHBOARD: Handles 'ledger' AND 'expenses' button
+            switch (view) {
+                case 'dashboard':
+                    currentContent = <Dashboard 
+                        players={players} 
+                        matches={matches} 
+                        itinerary={itinerary} 
+                        setView={setView} 
+                        role={role} 
+                        handleLogout={handleLogout} 
+                    />;
+                    break;
+
+                case 'players': currentContent = <RosterView players={players} addPlayer={addPlayer} deletePlayer={deletePlayer} updatePlayer={updatePlayer} role={role} teamNames={teamNames} />; break;
+                case 'tournament': currentContent = <TournamentView players={players} matches={matches} updateMatch={updateMatch} addMatch={addMatch} deleteMatch={deleteMatch} role={role} teamNames={teamNames} />; break;
+                case 'messages': currentContent = <MessagesView messages={messages} addMessage={addMessage} user={user} />; break;
+                case 'manage': currentContent = <ManageTripView />; break;
+                case 'logistics': currentContent = <LogisticsView itinerary={itinerary} addItinerary={addItinerary} deleteItinerary={deleteItinerary} role={role} />; break;
+
+                // ✅ FIX: Catches "finance", "ledger", AND "expenses"
+                case 'finance':  // <--- THE MISSING KEY!
+                case 'ledger': 
+                case 'expenses': 
+                    currentContent = <LedgerView 
+                        players={players} 
+                        expenses={expenses} 
+                        bets={bets} 
+                        addExpense={addExpense} 
+                        addBet={addBet} 
+                        deleteItem={deleteLedgerItem} 
+                        role={role} 
+                    />; 
+                    break;
+
+                default: 
+                    currentContent = <Dashboard players={players} matches={matches} itinerary={itinerary} setView={setView} role={role} />;
+            }
+}
+// 🔒 THE REAL GATEKEEPER (Paste this at Line 2622)
+    if (!user) {
+        return <AuthScreen onLogin={handleLogin} />;
+    }
 return (
     // 1. Wrap everything in Router so URLs work
     <Router>
