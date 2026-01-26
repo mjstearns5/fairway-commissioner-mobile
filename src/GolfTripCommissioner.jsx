@@ -1738,67 +1738,60 @@ const GolfTripCommissioner = () => {
              alert("Login Failed: " + error.message);
         }
     };
-  // --- MASTER REVENUECAT SETUP (Config + Login in Order) ---
   useEffect(() => {
-    const initMasterSequence = async () => {
-      try {
-        console.log("🚀 Starting RevenueCat Master Sequence...");
-       
-        await Purchases.setLogLevel(LOG_LEVEL.DEBUG);
-        // 1. CONFIGURE REVENUECAT (Must happen first!)
-        if (Capacitor.getPlatform() === 'android') {
-           await Purchases.configure({ apiKey: "goog_UzhTMGwJxYNxqqkMmdcedlEItHf" });
-          } else {
-           // 🍎 iOS REVERT: Go back to simple configuration.
-           // This fixes the "Purchase couldn't be completed" crash.
-           await Purchases.configure({ apiKey: "appl_tOvHgGHoyoinCWqidNxKeuEvpsF" });
-      }
-        console.log("✅ RevenueCat Configured.");
+        let unsubscribeAuthStateChanged;
 
-        // 2. LISTEN FOR FIREBASE AUTH (Only after config is done)
-        const unsubscribe = onAuthStateChanged(auth, async (user) => {
-          if (user) {
-            console.log("👤 Firebase User Found:", user.uid);
-            
-            // 3. LOG IN (Links the "Already Subscribed" receipt to this user)
-            // 🛡️ SAFETY CHECK: Only run this on iOS
-          // (Android continues using its current working setup)
-          if (Capacitor.getPlatform() === 'ios') {
-              console.log(" iOS Device Detected: Linking RevenueCat Identity...");
-              try {
-                  // THE FIX: Remove the curly braces! Just pass the UID.
-                  await Purchases.logIn(user.uid); 
+        const initMasterSequence = async () => {
+            try {
+                console.log("🔒 Locking App until RevenueCat is ready...");
 
-                  await Purchases.restorePurchases();
-                  
-                  // 4. REFRESH: Now that the user is linked, check the entitlement
-                  await checkSubscriptionStatus();
-                  
-              } catch (e) {
-                  console.error("⚠️ RevenueCat Login Failed:", e);
-              }
-          }
-          } else {
-            console.log("⚠️ No user logged in yet. RevenueCat staying Anonymous.");
-          }
-        });
+                // 1. Setup
+                await Purchases.setLogLevel(LOG_LEVEL.DEBUG);
 
-        // Cleanup listener when app closes
-        return () => unsubscribe();
+                // ✅ CORRECTED API KEYS (Taken directly from your screenshot image_ba1cd5.jpg)
+                const apiKey = Capacitor.getPlatform() === 'ios'
+                    ? "appl_tOvHgGHoyoinCWqidNxKeuEvpsF"
+                    : "goog_UzhTMGwJxYNxqqkMmdcedlEItHf";
 
-      } catch (e) {
-        console.error("❌ Critical Setup Error:", e);
-      }
-    };
+                // 2. Wait for Firebase (The Blocking Step)
+                unsubscribeAuthStateChanged = onAuthStateChanged(auth, async (user) => {
+                    
+                    if (user) {
+                        // A. User Found -> Configure with ID
+                        console.log("✅ User found:", user.uid);
+                        // CRITICAL: Passing appUserID here prevents the Anonymous ID
+                        await Purchases.configure({ apiKey, appUserID: user.uid });
+                        
+                        // Sync subscriptions immediately
+                        if (typeof checkSubscriptionStatus === 'function') {
+                            await checkSubscriptionStatus();
+                        }
+                    } else {
+                        // B. Guest -> Configure Anonymously
+                        console.log("👤 No user. Configuring Guest.");
+                        await Purchases.configure({ apiKey });
+                    }
 
-    initMasterSequence();
-    
-    // Optional: Keep the background update listener separate or here
-    Purchases.addCustomerInfoUpdateListener((info) => {
-        checkSubscriptionStatus();
-    });
+                    // 3. UNLOCK THE APP
+                    // Only happens AFTER RevenueCat is 100% finished
+                    console.log("🔓 RevenueCat Configured. Opening App.");
+                    setIsReady(true);
+                });
 
-  }, []);
+            } catch (e) {
+                console.error("Master Sequence Error:", e);
+                // Safety Net: Unlock the app so user isn't stuck on white screen
+                setIsReady(true);
+            }
+        };
+
+        initMasterSequence();
+
+        return () => {
+            if (unsubscribeAuthStateChanged) unsubscribeAuthStateChanged();
+        };
+    }, []);
+  
   // ⚡️ AUTO-REFRESH LISTENER (iOS ONLY)
   useEffect(() => {
     // 🛡 Protection: If this is Android, STOP immediately. Do not run this listener.
@@ -1817,38 +1810,8 @@ const GolfTripCommissioner = () => {
     const listenerPromise = setupListener();
     return () => { listenerPromise.then(handle => handle.remove()); };
   }, []);
-  // --- FIREBASE TEST LOGIC START ---
-  const [testName, setTestName] = useState("");
-  const [testUsers, setTestUsers] = useState([]);
 
-  const addTestUser = async (e) => {
-    e.preventDefault();  
-    try {
-        const docRef = await addDoc(collection(db, "users"), {
-          name: testName,
-          createdAt: new Date()
-        });
-        console.log("Document written with ID: ", docRef.id);
-        setTestName(""); 
-        fetchTestUsers(); 
-    } catch (e) {
-        console.error("Error adding document: ", e);
-    }
-  };
-
-  const fetchTestUsers = async () => {
-    const querySnapshot = await getDocs(collection(db, "users"));
-    const usersList = querySnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    }));
-    setTestUsers(usersList);
-  };
-
-  useEffect(() => {
-    fetchTestUsers();
-  }, []);
-  // --- FIREBASE TEST LOGIC END ---
+  const [isReady, setIsReady] = useState(false); // <--- Controls the Loading Screen
   // 1. Initialize User from Memory
   const [user, setUser] = useState(() => {
     const savedUser = localStorage.getItem('golfAppUser');
@@ -2789,6 +2752,19 @@ useEffect(() => {
     if (!user) {
         return <AuthScreen onLogin={handleLogin} />;
     }
+    // ⬇️ PASTE THE NEW CODE HERE (Before Line 2755) ⬇️
+    // 🚨 BLOCKING GUARDRAIL 🚨
+    if (!isReady) {
+        return (
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', backgroundColor: '#111827', color: 'white' }}>
+                <div style={{ textAlign: 'center' }}>
+                    <h2 style={{ fontSize: '24px', marginBottom: '10px' }}>Initializing...</h2>
+                    <p style={{ color: '#9CA3AF' }}>Syncing Commissioner Data</p>
+                </div>
+            </div>
+        );
+    }
+    // ⬆️ END OF NEW CODE ⬆️
 return (
     // 1. Wrap everything in Router so URLs work
     <Router>
