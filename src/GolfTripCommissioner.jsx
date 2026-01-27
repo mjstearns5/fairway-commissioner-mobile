@@ -387,8 +387,9 @@ const MessagesView = ({ messages, addMessage, user }) => {
                   </span>
                   <span className="text-[10px] text-slate-300">•</span>
                   <span className="text-[10px] text-slate-400">
-                    {new Date(msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                  </span>
+  {(msg.timestamp?.toDate ? msg.timestamp.toDate() : new Date(msg.timestamp || Date.now()))
+    .toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+</span>
                 </div>
               </div>
             );
@@ -554,6 +555,7 @@ const ManageTripView = () => {
 const Layout = ({ children, view, setView, user, role, setRole, tripId, setTripId, handleLogout, handlePurchase, handleRestore, isLoading, isSubscribed }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const isIOS = Capacitor.getPlatform() === 'ios'; // <--- ADD THIS LINE
+  const isAndroid = Capacitor.getPlatform() === 'android';
 
   const navItems = [
     { id: 'setup', label: 'Trip Setup', icon: MapPin },
@@ -683,7 +685,7 @@ const Layout = ({ children, view, setView, user, role, setRole, tripId, setTripI
 
       {/* MOBILE MENU OVERLAY */}
       {isMenuOpen && (
-        <div className={`md:hidden absolute inset-0 bg-slate-900 z-40 p-4 overflow-y-auto pb-24 ${isIOS ? 'top-32' : 'top-16'}`}>
+        <div className={`md:hidden absolute inset-0 bg-slate-900 z-40 p-4 overflow-y-auto pb-24 ${isIOS ? 'top-32' : 'top-16'} ${isAndroid ? 'pt-12' : ''}`}>
            {navItems.map((item) => (
              <button
                key={item.id}
@@ -757,21 +759,38 @@ const TripSetupView = ({ setActiveTab, setTripId, setRole, setView, user, isSubs
         }
     };
 
-  const handleJoinTrip = () => {
-    // 1. Checks
-    if (!isSubscribed) { alert("Please subscribe!"); return; }
-    if (joinCode.length < 3) return;
+  const handleJoinTrip = async () => {
+        // 1. Checks
+        if (!isSubscribed) { alert("Please subscribe!"); return; }
+        if (joinCode.length < 3) return;
 
-    // 2. Update Screen -> EVERYONE IS COMMISSIONER
-    setTripId(joinCode);
-    setRole('commissioner'); // <--- CHANGE THIS (Was 'player')
+        try {
+            // 2. SAVE TO FIREBASE 💾
+            const uid = user?.uid || auth.currentUser?.uid;
+            if (uid) {
+                await setDoc(doc(db, 'users', uid), {
+                    activeTripId: joinCode,
+                    role: 'player' 
+                }, { merge: true });
+            }
 
-    // 3. Save to Memory -> EVERYONE IS COMMISSIONER
-    localStorage.setItem("activeTripId", joinCode);
-    localStorage.setItem("userRole", "commissioner"); // <--- CHANGE THIS (Was 'player')
-    // 4. Redirect to Dashboard
-if (setView) setView('dashboard');
-  };
+            // 3. Update Screen 
+            setTripId(joinCode);
+            setRole('player'); 
+
+            // 4. Save to Memory 
+            localStorage.setItem("activeTripId", joinCode);
+            localStorage.setItem("userRole", "player");
+
+            // 5. Redirect
+            if (setView) setView('dashboard');
+
+        } catch (error) {
+            // 🚨 THIS WAS MISSING IN YOUR CODE
+            console.error("Error joining trip:", error);
+            alert("Could not join trip. Please try again.");
+        }
+    };
 
   return (
     <div className="space-y-8">
@@ -2712,6 +2731,18 @@ useEffect(() => {
     // 2. FIX THE SIGN OUT (Pass the tool to the Dashboard)
     // ✅ FINAL SWITCHBOARD: Handles 'ledger' AND 'expenses' button
             switch (view) {
+              case 'setup':
+                // We use YOUR existing component 'TripSetupView' 
+                // We don't need to pass handleCreateTrip because it is already inside the component!
+                currentContent = <TripSetupView 
+                    user={user} 
+                    setTripId={setTripId}
+                    setRole={setRole}
+                    setView={setView}
+                    isSubscribed={isSubscribed}
+                    handlePurchase={handlePurchase}
+                />;
+                break;
                 case 'dashboard':
                     currentContent = <Dashboard 
                         players={players} 
