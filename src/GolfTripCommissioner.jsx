@@ -770,18 +770,17 @@ const TripSetupView = ({ setActiveTab, setTripId, setRole, setView, user, isSubs
             if (uid) {
                 await setDoc(doc(db, 'users', uid), {
                     activeTripId: joinCode,
-                    role: 'player' 
+                    role: 'commissioner' 
                 }, { merge: true });
             }
 
             // 3. Update Screen 
             setTripId(joinCode);
-            setRole('player'); 
+            setRole('commissioner'); 
 
             // 4. Save to Memory 
             localStorage.setItem("activeTripId", joinCode);
-            localStorage.setItem("userRole", "player");
-
+            localStorage.setItem("userRole", "commissioner");
             // 5. Redirect
             if (setView) setView('dashboard');
 
@@ -1566,7 +1565,11 @@ const LedgerView = ({ players: rawPlayers, expenses: rawExpenses, bets: rawBets,
 // 15. Dashboard
 // ✅ RESTORED DASHBOARD: Shows Full UI even with 0 data
 // ✅ ROBUST FIX: We rename the incoming prop to 'rawTeamNames' to sanitize it
-const Dashboard = ({ players = [], matches = [], itinerary = [], setView, role, teamNames: rawTeamNames, handleLogout }) => {
+// Remove "role" from the list inside the { } so we can define it ourselves
+const Dashboard = ({ players = [], matches = [], itinerary = [], setView, teamNames: rawTeamNames, handleLogout }) => {
+    
+    // 👑 HARDCODE: Everyone who sees the Dashboard is a Commissioner
+    const role = 'commissioner';
     
     // 1. SANITIZE TEAM NAMES (The "Null" Killer)
     // This forces valid names even if the database sends 'null' or 'undefined'.
