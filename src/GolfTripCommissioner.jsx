@@ -385,11 +385,6 @@ const MessagesView = ({ messages, addMessage, user }) => {
                   <span className="text-[10px] font-bold text-slate-400">
                     {isMe ? 'You' : msg.senderName}
                   </span>
-                  <span className="text-[10px] text-slate-300">•</span>
-                  <span className="text-[10px] text-slate-400">
-  {(msg.timestamp?.toDate ? msg.timestamp.toDate() : new Date(msg.timestamp || Date.now()))
-    .toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-</span>
                 </div>
               </div>
             );
